@@ -1059,9 +1059,18 @@
     const f = list.find(x => x.id === id);
     if (!f) return;
     const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name });
-    const url = !error && data && safeUrl(data.signedUrl);
+    const raw = !error && data && data.signedUrl;
+    // blob: links come from the demo's in-browser storage
+    const url = raw && (String(raw).startsWith("blob:") ? raw : safeUrl(raw));
     if (!url) { S.pageMsg = errText(error); return render(); }
-    location.href = url;
+    // A download link, not navigation, so a PDF never replaces the app
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = f.file_name;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   async function deleteTrainingFile(id) {

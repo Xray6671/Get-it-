@@ -33,14 +33,15 @@ To change the address, replace it in every `.html` file, including both form end
 To serve it from nevadabusinesswatch.com, add the domain under **Settings → Pages → Custom domain**, then point the domain's DNS at GitHub Pages. Canonical URLs and the sitemap already use that domain.
 
 ## Business File (`hub.html`)
-A login area for clients and the NBW team. Its code is `hub.html`, `hub.js` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
+A login area for clients and the NBW team. Its code is `hub.html`, `hub.js`, `hub.css` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
 
 - **Business owners** upload their licenses, insurance certificates and written plans; track crew safety training (knowledge checks graded on the server, training files, a CSV export); and read updates from the NBW team.
 - **NBW staff** see every client's file, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
 
 Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly.
 
-`compliance-hub-demo.html` is a separate sample page with made-up data. It saves nothing outside the visitor's browser.
+### Demo (`business-file-demo.html`)
+The same app (`hub.js` and `hub.css`) running on example data from `demo-client.js` instead of Supabase. It opens as Marco from Desert Ridge Roofing. A bar at the top switches to the NBW staff view, so visitors can follow a document from upload to review. Nothing is sent anywhere: uploads stay in the browser tab, and reloading starts over. It works without any Supabase setup, and nothing links to it yet. Add it to the site menu and `sitemap.xml` when you want prospects to find it.
 
 ### One-time setup
 1. Create a free project at [supabase.com](https://supabase.com). Choose a US region.
@@ -65,9 +66,10 @@ Edit the questions and answers at the bottom of `supabase/schema.sql` and run th
   ```
   psql -d hubtest -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/tests/rls_test.sql
   ```
-- **The page**, in Chromium with a fake Supabase client. This needs Playwright:
+- **The page**, in Chromium with a fake Supabase client, and **the demo walkthrough**. These need Playwright:
   ```
   node supabase/tests/hub.test.mjs
+  node supabase/tests/demo.test.mjs
   ```
 
 Never run `supabase_stub.sql` on a real Supabase project.
