@@ -43,7 +43,7 @@ const ic=(k,cls="")=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke
 const T={
  en:{demo:"Demo with an example client. Uploads stay in this browser tab and are not sent to anyone.",
   hi:n=>n?`Welcome back, ${n}`:"Welcome back", fileFor:b=>`Business File for ${b}`,
-  leadNeed:k=>k?`${k} item${k>1?"s":""} need${k>1?"":"s"} you. Everything else, we're watching.`:"Nothing needs you right now. We're watching your file.",
+  leadNeed:k=>k?`${k} item${k>1?"s":""} need${k>1?"":"s"} you. Everything else is on track.`:"Nothing needs you right now. Everything is on track.",
   tHome:"Home", tDocs:"Documents", tUpd:"Updates", tPlan:"My plan", menu:"Menu",
   need:"Action needed", soon:"Renew soon", review:"Under review", ok:"Current",
   todo:"What we need from you", upload:"Upload", uploadNew:"Upload new copy", uploadThis:"Upload this first",
@@ -89,6 +89,9 @@ const T={
   oSheet:p=>`Order: ${p}`, oList:"Listed price", oYours:"Your price", oStart:"To start", oDelivery:"At delivery", oBilled:"Billed monthly", oNote:"Anything we should know? (optional)", oNotePh:"e.g. Two job sites, Spanish-speaking crew", oSend:"Send order",
   oFine:"No payment now. NBW confirms your order and emails you an invoice.", oDone:"Order sent. We'll confirm it and email your invoice.",
   secReq:"Required", secCrew:"Crew training", secPkg:"Packages",
+  crewItem:"Crew training", crewItemM:(over,soon)=>[over?`${over} check${over>1?"s":""} overdue or missing`:"",soon?`${soon} due soon`:""].filter(Boolean).join(" · "), crewItemBtn:"Open crew training",
+  have:{ok:"On file",review:"With NBW for review",missing:"Not on file"}, trained:(a,b)=>`${a} of ${b} trained`,
+  tourTitle:"New here? Try these 3 things", tour1:"Upload the missing heat plan", tour2:"Take a crew knowledge check", tour3:"See Safety & Heat packages", tourHide:"Hide", bookCheck:"Book a free check", tourFine:"This is example data. Your real Business File works the same way.",
   reqSum:(n,crew,heat)=>`With ${crew} employees${heat?" and heat on the job":""}, you need these ${n} things in place.`,
   bestForYou:"Best fit for you", otherPkgs:"Other packages",
   doTitle:"What to do", doReview:"Nothing to do. We're checking the copy you sent.", doRequested:"Upload a copy so we can add it to your file.",
@@ -102,8 +105,8 @@ const T={
   chkPassed:(n,c,d)=>`${n} passed ${c}. Due again ${d}. Keep a signed training record as well.`, chkFail:"That didn't save. Check your connection and try again.",
   homeSafe:"Health & safety, done for you", homeSafeM:"See what Nevada requires for your crew size, and have NBW write your plan.", homeSafeBtn:"See requirements"},
  es:{demo:"Demostración con un cliente de ejemplo. Los archivos se quedan en esta pestaña y no se envían a nadie.",
-  hi:n=>n?`Bienvenido, ${n}`:"Bienvenido", fileFor:b=>`Expediente de ${b}`,
-  leadNeed:k=>k?`${k} documento${k>1?"s":""} necesita${k>1?"n":""} su atención. Nosotros vigilamos todo lo demás.`:"Nada necesita su atención ahora. Estamos vigilando su expediente.",
+  hi:n=>n?`Hola, ${n}`:"Hola", fileFor:b=>`Expediente de ${b}`,
+  leadNeed:k=>k?`Tiene ${k} pendiente${k>1?"s":""}. Todo lo demás va bien.`:"No tiene pendientes. Todo va bien.",
   tHome:"Inicio", tDocs:"Documentos", tUpd:"Avisos", tPlan:"Mi plan", menu:"Menú",
   need:"Requiere acción", soon:"Renovar pronto", review:"En revisión", ok:"Al día",
   todo:"Lo que necesitamos de usted", upload:"Subir", uploadNew:"Subir copia nueva", uploadThis:"Subir esto primero",
@@ -149,6 +152,9 @@ const T={
   oSheet:p=>`Pedido: ${p}`, oList:"Precio de lista", oYours:"Su precio", oStart:"Para empezar", oDelivery:"Al entregar", oBilled:"Se cobra cada mes", oNote:"¿Algo que debamos saber? (opcional)", oNotePh:"p. ej. Dos obras, equipo que habla español", oSend:"Enviar pedido",
   oFine:"No se cobra nada ahora. NBW confirma su pedido y le envía la factura por correo.", oDone:"Pedido enviado. Lo confirmaremos y le enviaremos la factura.",
   secReq:"Requisitos", secCrew:"Capacitación", secPkg:"Paquetes",
+  crewItem:"Capacitación del equipo", crewItemM:(over,soon)=>[over?`${over} prueba${over>1?"s":""} vencida${over>1?"s":""} o pendiente${over>1?"s":""}`:"",soon?`${soon} vence${soon>1?"n":""} pronto`:""].filter(Boolean).join(" · "), crewItemBtn:"Ver capacitación",
+  have:{ok:"En su expediente",review:"En revisión con NBW",missing:"No está en su expediente"}, trained:(a,b)=>`${a} de ${b} capacitados`,
+  tourTitle:"¿Es nuevo? Pruebe estas 3 cosas", tour1:"Subir el plan contra el calor que falta", tour2:"Hacer una prueba del equipo", tour3:"Ver paquetes de Seguridad y Calor", tourHide:"Ocultar", bookCheck:"Reservar una revisión gratis", tourFine:"Estos son datos de ejemplo. Su expediente real funciona igual.",
   reqSum:(n,crew,heat)=>`Con ${crew} empleados${heat?" y calor en el trabajo":""}, necesita tener estas ${n} cosas en orden.`,
   bestForYou:"Lo mejor para usted", otherPkgs:"Otros paquetes",
   doTitle:"Qué hacer", doReview:"Nada por ahora. Estamos revisando la copia que envió.", doRequested:"Suba una copia para agregarla a su expediente.",
@@ -302,12 +308,37 @@ async function loadLive(){
 function liveFail(){Object.assign(S,{loading:false,broken:true}); render();}
 function viewStatus(msg){return `<main><div class="signin">${scheme==="night"?LOGO:LOGO_ON_LIGHT}<p class="lead">${msg}</p></div></main>`;}
 
+// Training checks that need attention, counted across the active crew
+function crewGaps(){
+  const g={over:0,soon:0}, emps=S.emps.filter(e=>e.active);
+  emps.forEach(e=>S.courses.forEach(c=>{const k=standing(e.id,c).k; if(k==="over"||k==="none") g.over++; else if(k==="soon") g.soon++;}));
+  return g;
+}
+// Shown only in the demo: three things to try, and a way to reach NBW
+const CONTACT_URL=window.NBW_CONTACT_URL||"contact.html";
+function viewTour(){
+  if(CONFIGURED||S.hideTour) return "";
+  const L=t(), heatDoc=S.docs.find(d=>d.cat==="safety"&&st(d)==="need");
+  return `<section class="panel tour"><div class="panel-h"><h2>${L.tourTitle}</h2><button class="link" data-hidetour>${L.tourHide}</button></div>
+    <ol class="steps" style="background:none;padding-top:0">
+      <li>${heatDoc?`<button class="link" data-up="${heatDoc.id}">${L.tour1}</button>`:L.tour1}</li>
+      <li><button class="link" data-tab="safe" data-go="crew">${L.tour2}</button></li>
+      <li><button class="link" data-tab="safe" data-go="pkg">${L.tour3}</button></li>
+    </ol>
+    <div style="padding:0 16px 16px;display:grid;gap:8px"><a class="btn btn-primary" href="${esc(CONTACT_URL)}" target="_blank" rel="noopener">${L.bookCheck}</a><p class="fine" style="padding:0">${L.tourFine}</p></div></section>`;
+}
 function viewHome(){
   const L=t(), c=counts(), todo=sorted().filter(d=>["need","soon"].includes(st(d))), u=S.updates[0], pid=urgentId();
+  const g=crewGaps(), crewRow=g.over||g.soon?`<li class="doc"><button class="doc-main" data-tab="safe" data-go="crew">
+      <span class="ico c-wc">${ic("people")}</span>
+      <span class="doc-text"><span class="n">${L.crewItem}</span>${pill(g.over?"need":"soon")}<span class="m">${esc(L.crewItemM(g.over,g.soon))}</span></span>
+      ${ic("chev","chev")}</button><div class="act"><button class="btn btn-line" data-tab="safe" data-go="crew">${L.crewItemBtn}</button></div></li>`:"";
+  const needCount=c.need+c.soon+(crewRow?1:0);
   return `<div class="stack">
-    <div><h1>${esc(L.hi(S.client.first))}</h1><div class="kicker">${esc(L.fileFor(S.client.biz))}</div><p class="lead">${L.leadNeed(c.need+c.soon)}</p></div>
+    <div><h1>${esc(L.hi(S.client.first))}</h1><div class="kicker">${esc(L.fileFor(S.client.biz))}</div><p class="lead">${L.leadNeed(needCount)}</p></div>
+    ${viewTour()}
     <div class="health">${["need","soon","review","ok"].map(k=>`<button class="tile" data-goto="${k}" style="--c:var(--t-${k})"><i>${ic(TI[k])}</i><b>${c[k]}</b><span>${L[k]}</span></button>`).join("")}</div>
-    <h2 class="section-h">${L.todo}</h2><section class="panel"><ul class="list">${todo.length?todo.map(d=>docRow(d,pid)).join(""):`<li class="empty">${L.leadNeed(0)}</li>`}</ul></section>
+    <h2 class="section-h">${L.todo}</h2><section class="panel"><ul class="list">${todo.length||crewRow?todo.map(d=>docRow(d,pid)).join("")+crewRow:`<li class="empty">${L.leadNeed(0)}</li>`}</ul></section>
     <button class="btn btn-${pid?"line":"primary"} btn-lg" data-up="">${pid?L.other:L.upTitle}</button>
     <section class="panel"><div class="note-card" style="padding-top:16px"><span class="ico c-safety">${ic("safe")}</span><div><h2>${L.homeSafe}</h2><p style="color:var(--muted)">${L.homeSafeM}</p>
       <button class="btn btn-line" data-tab="safe" data-go="req" style="margin-top:10px">${L.homeSafeBtn}</button></div></div></section>
@@ -357,7 +388,8 @@ function viewSafe(){
 function viewReqs(){
   const L=t(), crew=S.crew, heat=S.heat, heatOn=heat!=="no";
   const seg=(items,cur,attr)=>`<div class="seg" role="group">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`).join("")}</div>`;
-  const item=(n,k,cite)=>`<li class="req"><span class="chk" aria-hidden="true">${n}</span><div><div class="n">${L[k]}</div><div class="m">${L[k+"m"]}</div><cite>${cite}</cite></div></li>`;
+  const item=(n,k,cite)=>{ const h=haveStatus(k);
+    return `<li class="req"><span class="chk" aria-hidden="true">${n}</span><div><div class="n">${L[k]}</div>${h?`<span class="pill ${h.cls}" style="margin-top:4px">${esc(h.text)}</span>`:""}<div class="m">${L[k+"m"]}</div><cite>${cite}</cite></div></li>`; };
   const reqs=[];
   if(crew!=="small"){ reqs.push(["r1","NRS 618.383"],["r2","NRS 618.383"],["r3","NRS 618.383"]); if(crew==="big") reqs.push(["r4","NRS 618.383"]); }
   if(heatOn) reqs.push(["r5","R131-24"], ...(crew!=="small"?[["r6","R131-24"]]:[]), ["r7","R131-24"], ["r8","R131-24"]);
@@ -371,6 +403,22 @@ function viewReqs(){
       ${reqs.length?`<ul class="reqs">${reqs.map(([k,c],i)=>item(i+1,k,c)).join("")}</ul>`:""}
       ${heat==="unsure"?`<div class="callout" style="margin:0 16px 12px">${L.heatUnsure}</div>`:""}</section>
     <p class="fine">${L.reqFine}</p>`;
+}
+// Where the app already knows the answer, show whether this business has the
+// requirement covered. Others stay unmarked rather than guessed.
+function haveStatus(k){
+  const L=t();
+  const docState=re=>{ const d=S.docs.find(x=>x.cat==="safety"&&re.test(x.n+" "+(x.es||""))); if(!d) return "missing"; const s=st(d); return s==="review"?"review":s==="ok"||s==="soon"?"ok":"missing"; };
+  const mark=v=>({cls:v==="ok"?"p-ok":v==="review"?"p-review":"p-need",text:L.have[v]});
+  if(k==="r1") return mark(docState(/safety program|programa de seguridad/i));
+  if(k==="r5"||k==="r6") return mark(docState(/heat|calor/i));
+  if(k==="r8"){
+    const heat=S.courses.find(c=>c.id==="heat"), emps=S.emps.filter(e=>e.active);
+    if(!heat||!emps.length) return null;
+    const done=emps.filter(e=>["ok","soon"].includes(standing(e.id,heat).k)).length;
+    return {cls:done===emps.length?"p-ok":"p-soon",text:L.trained(done,emps.length)};
+  }
+  return null;
 }
 function viewPkgs(){
   const L=t(), crew=S.crew, heatOn=S.heat!=="no", disc=pct()>0;
@@ -606,6 +654,7 @@ document.addEventListener("click",e=>{
   if(g("[data-close]")||e.target.id==="scrim"){sheet=null; pending=[]; render(); return;}
   if(e.target.id==="si-demo"){S.signedIn=true; tab="home"; render(); return;}
   if(b=g("[data-safesec]")){S.safeSec=b.dataset.safesec; render(); return;}
+  if(g("[data-hidetour]")){S.hideTour=true; render(); return;}
   if(b=g("[data-crew]")){S.crew=b.dataset.crew; render(); return;}
   if(b=g("[data-heat]")){S.heat=b.dataset.heat; render(); return;}
   if(b=g("[data-order]")){sheet={type:"order",id:b.dataset.order}; render(); return;}

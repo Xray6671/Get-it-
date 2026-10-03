@@ -70,10 +70,22 @@ try {
     const page = await open("business-file-demo.html");
     await page.waitForSelector("text=Welcome back, Marco");
     ok((await page.text("#demo-note")).includes("Demo with an example client"), "demo: shows the demo notice");
+    // Home counts crew training too, and the demo shows what to try
+    ok((await page.text("main .lead")) === "5 items need you. Everything else is on track.", "demo: lead counts documents and crew training");
+    ok((await page.text("main .list")).includes("Crew training") && (await page.text("main .list")).includes("overdue or missing"), "demo: crew training listed on Home");
+    ok((await page.$$(".tour .steps li")).length === 3 && (await page.getAttribute(".tour a.btn", "href")) === "contact.html", "demo: try-it guide with a Book a free check link");
+    await page.click(".tour [data-go=crew]");
+    ok(!!(await page.$("#crew")), "demo: guide opens crew training");
+    await page.click("nav.bottom [data-tab=home]");
+    await page.click("[data-hidetour]");
+    ok(!(await page.$(".tour")), "demo: guide can be hidden");
+    await page.click("main .list button[data-go=crew]");
+    ok(!!(await page.$("#crew")), "demo: Home's crew item opens the crew list");
+    await page.click("nav.bottom [data-tab=home]");
     await page.click("[data-det]");
     ok((await page.text(".sheet .callout")).includes("Renew it with the agency that issued it"), "demo: document detail says what to do");
     await page.click(".sheet [data-close]");
-    await page.click("main [data-tab=safe]");
+    await page.click("main [data-tab=safe][data-go=req]");
     ok((await page.text("h1")) === "Health & safety" && (await page.$$("[data-safesec]")).length === 3, "demo: Safety tab opens on its three sections");
     const combos = { "small,no": 0, "mid,yes": 7, "big,no": 4 };
     for (const [k, n] of Object.entries(combos)) {
@@ -83,6 +95,8 @@ try {
     }
     await page.click("[data-crew=mid]"); await page.click("[data-heat=yes]");
     ok((await page.text(".req-sum")) === "With 11–25 employees and heat on the job, you need these 7 things in place.", "demo: one-line summary of what's required");
+    const reqTexts = await page.$$eval(".req", els => els.map(e => e.textContent));
+    ok(reqTexts[0].includes("Not on file") && reqTexts[3].includes("Not on file") && reqTexts[6].includes("2 of 3 trained"), "demo: requirements show what's on file");
     ok(!(await page.$("#crew")) && !(await page.$(".pkg")), "demo: requirements section shows only requirements");
     await page.click("[data-safesec=pkg]");
     ok((await page.text(".pkg >> nth=0")).startsWith("Heat Plan") && (await page.text(".pkg >> nth=0")).includes("$1,020"), "demo: best fit first, at the 15% client price");
@@ -129,6 +143,12 @@ try {
     await page.click(".sheet [data-check=hazcom]");
     ok((await page.text(".sheet")).includes("¿Cuándo deben estar disponibles las Hojas de Datos de Seguridad") && (await page.text(".sheet")).includes("Lea la etiqueta antes de usar un químico"), "demo: check in Spanish");
     await page.click(".sheet [data-close]");
+    await page.click("nav.bottom [data-tab=home]");
+    ok((await page.text("h1")) === "Hola, Marco", "demo: Spanish greeting works for anyone");
+    await page.click("nav.bottom [data-tab=safe]");
+    await page.click("[data-safesec=crew]");
+    await page.click("[data-emp=e-maria]");
+    await page.click(".sheet [data-close]");
     await page.click("#menu"); await page.click("[data-lang=en]"); await page.click("[data-close]");
     ok(!(await page.text("nav.bottom")).includes("undefined"), "demo: tab labels complete");
     ok(await page.noSideScroll(), "demo: no sideways scroll");
@@ -162,6 +182,7 @@ try {
     await page.click("#si-code-form button[type=submit]");
     await page.waitForSelector("text=Welcome back, Marco");
     ok((await page.text("main .kicker")) === "Business File for Desert Ridge Roofing LLC", "live: opens the client's own file");
+    ok(!(await page.$(".tour")), "live: no demo guide for real clients");
     ok((await page.text(".tile[data-goto=review] b")) === "1", "live: one document under review");
 
     // upload the requested heat plan
