@@ -40,8 +40,9 @@ async function newPage({ config = fakeConfig } = {}) {
   const page = await browser.newPage({ viewport: { width: 390, height: 900 }, acceptDownloads: true });
   page.errors = [];
   page.dialogs = [];
-  page.on("pageerror", e => page.errors.push(e.message));
-  page.on("console", m => { if (m.type() === "error") page.errors.push(m.text()); });
+  // Logged as they happen too, so a CI failure shows the cause
+  page.on("pageerror", e => { page.errors.push(e.message); console.log("page error:", e.message); });
+  page.on("console", m => { if (m.type() === "error") { page.errors.push(m.text()); console.log("console error:", m.text()); } });
   page.on("dialog", d => { page.dialogs.push(d.message()); d.accept(); });
   await page.route("https://cdn.jsdelivr.net/**", r => r.fulfill({ body: supabaseJs, contentType: "text/javascript", headers: { "access-control-allow-origin": "*" } }));
   await page.route("**/hub-config.js", r => r.fulfill({ body: config, contentType: "text/javascript" }));
@@ -65,10 +66,16 @@ async function signUpAndIn(page, email) {
 async function reloadData(page, email) {
   await page.click("header [data-action=sign-out]");
   await page.waitForSelector("#authForm");
+  await page.evaluate(() => {
+    window.__sawSetup = false;
+    new MutationObserver(() => { if (document.querySelector("#setupForm")) window.__sawSetup = true; })
+      .observe(document.getElementById("app"), { childList: true, subtree: true });
+  });
   await page.fill("input[name=email]", email);
   await page.fill("input[name=password]", "longpassword");
   await page.click("#authForm button[type=submit]");
   await page.waitForSelector("main.wrap");
+  ok(!(await page.evaluate(() => window.__sawSetup)), "returning owner never sees the setup form flash");
 }
 const daysFromNow = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
 

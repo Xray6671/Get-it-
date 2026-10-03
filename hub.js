@@ -1505,7 +1505,9 @@
     const userChanged = (session && session.user.id) !== (S.session && S.session.user.id);
     S.session = session;
     if (userChanged) {
-      Object.assign(S, { tab: "home", sheet: null, pageMsg: null, clientId: null, isStaff: false });
+      // loading: true right away, so nothing redraws a half-loaded page (the
+      // setup form used to flash before a returning user's data arrived)
+      Object.assign(S, { tab: "home", sheet: null, pageMsg: null, clientId: null, isStaff: false, loading: true });
       if (session) S.authMsg = null;
     }
     // Token refreshes for the same user must not re-render, or forms in

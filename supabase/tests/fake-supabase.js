@@ -96,7 +96,8 @@ window.supabase.createClient = function () {
       order(c, o) { q.orderBy = [c, !o || o.ascending !== false]; return b; },
       maybeSingle() { q.single = "maybe"; return b; },
       single() { q.single = "one"; return b; },
-      then(res, rej) { return Promise.resolve().then(run).then(res, rej); }
+      // A small delay, like a real network, so timing bugs show up in tests
+      then(res, rej) { return new Promise(r => setTimeout(r, 40)).then(run).then(res, rej); }
     };
     return b;
   }
