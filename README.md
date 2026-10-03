@@ -32,51 +32,47 @@ To change the address, replace it in every `.html` file, including both form end
 
 To serve it from nevadabusinesswatch.com, add the domain under **Settings → Pages → Custom domain**, then point the domain's DNS at GitHub Pages. Canonical URLs and the sitemap already use that domain.
 
-## Business File (`hub.html`)
-A login area for clients and the NBW team. Its code is `hub.html`, `hub.js`, `hub.css` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
+## My Business File (`business-file.html`)
+The client app, in English and Spanish. Its code is `business-file.js` and `business-file.css`, configured by `business-file-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
 
-- **Business owners** upload their licenses, insurance certificates and written plans; track crew safety training (knowledge checks graded on the server, training files, a CSV export); and read updates from the NBW team.
-- **Ordering**: owners can order the Safety & Heat packages from `safety.html` at the client price (15% off, rounded to whole dollars). No payment is taken in the app: an order is a request that NBW staff confirm, reprice if needed (for example the founding rate) and invoice. Heat Plan orders from crews over 25 come in as quote requests. Prices live in `public.packages` at the bottom of `schema.sql`.
-- **NBW staff** see every client's file and new orders, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
+- **Clients** sign in with a one-time code sent to their email (no passwords). They see their licenses, insurance and other documents with what needs action, upload new copies, read updates from NBW, and use the **Safety** tab: it shows what Nevada requires for their crew size and heat exposure (NRS 618.383 and Regulation R131-24) and lets them order a Safety & Heat package.
+- **Orders** use the prices on `safety.html`. Clients on a plan get 15% off, rounded to whole dollars. The database sets the price; no payment is taken in the app. An order is a request that NBW confirms, reprices if needed (for example the founding rate) and invoices.
+- **NBW staff** use `staff.html`: the review queue, each client's documents and files, accepting an upload (with its expiration date) or sending it back with a note, requesting missing documents, posting updates, confirming orders, adding clients and giving people access.
 
-Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly. The database records which staff member last reviewed each document or handled each order, and when.
+Every upload stays **Under review** until someone at NBW accepts it, so someone has to check `staff.html` regularly. The database records who reviewed each document or handled each order, and when. Nobody can delete stored files from the browser. Each client can store up to 500 files; if an upload's record fails, the file is left over, and staff can list these with `select * from public.orphan_files();` in the SQL Editor and delete them in **Storage → client-files**.
 
-Each knowledge check starts with key points for the employee to read, then asks them to confirm they read them and to type their name as a signature. The name is saved with the record and included in the CSV export.
-
-Each business can store up to 300 files. If an upload succeeds but its record fails, the file is left over; staff can list these with `select * from public.orphan_files();` in the SQL Editor and delete them in **Storage → client-files**.
+Not built yet: crew safety training (knowledge checks with signatures), emails to staff about new uploads and orders, reminder emails before documents expire, and card payments.
 
 ### Demo (`business-file-demo.html`)
-The same app (`hub.js` and `hub.css`) running on example data from `demo-client.js` instead of Supabase. It opens as Marco from Desert Ridge Roofing. A bar at the top switches to the NBW staff view, so visitors can follow a document from upload to review. Nothing is sent anywhere: uploads stay in the browser tab, and reloading starts over. It works without any Supabase setup, and nothing links to it yet. Add it to the site menu and `sitemap.xml` when you want prospects to find it.
+The same app on example data: Marco from Desert Ridge Roofing. It has no config file, so it never connects to anything. Uploads and orders stay in the browser tab, and reloading starts over. The real `business-file.html` never shows example data: until Supabase is set up, it says the Business File isn't open yet.
 
 ### One-time setup
 1. Create a free project at [supabase.com](https://supabase.com). Choose a US region.
 2. In the project, open **SQL Editor → New query**, paste all of `supabase/schema.sql` and click **Run**. It is safe to run again after edits; it keeps existing data.
-3. Open **Project Settings → API** (or the **Connect** button). Copy the **Project URL** and the **anon / publishable** key into `hub-config.js`. Never use the `service_role` or secret key.
-4. Open **Authentication → URL Configuration**. Set **Site URL** to `https://nevadabusinesswatch.com/hub.html` and add the same address under **Redirect URLs**. Confirmation and password-reset emails link there.
-5. Leave **Confirm email** on (Authentication → Providers → Email).
-6. Make yourself NBW staff: create an account in `hub.html`, confirm the email, then run this in the SQL Editor with your email:
+3. Open **Project Settings → API** (or the **Connect** button). Copy the **Project URL** and the **anon / publishable** key into `business-file-config.js`, and check the phone number and email there. Never use the `service_role` or secret key.
+4. Open **Authentication → URL Configuration**. Set **Site URL** to `https://nevadabusinesswatch.com/business-file.html`, and add that address and `https://nevadabusinesswatch.com/staff.html` under **Redirect URLs**.
+5. Turn off new sign-ups (**Authentication → Sign In / Providers → Allow new users to sign up**). NBW creates every account, so strangers can't make one.
+6. Make yourself NBW staff: add yourself under **Authentication → Users → Add user**, then run this in the SQL Editor with your email:
    ```
    insert into public.staff (user_id) select id from auth.users where email = 'you@example.com';
    ```
    Repeat for each team member. Only do this for NBW staff: they can see every client's files. To remove someone, `delete from public.staff where user_id = ...`.
-7. Before real clients sign up, set up your own email sender under **Authentication → Emails → SMTP Settings**. Supabase's built-in sender only allows a handful of emails per hour.
+7. Set up your own email sender under **Authentication → Emails → SMTP Settings**. Sign-in codes go out by email, and Supabase's built-in sender only allows a handful per hour.
 
-If you put the project on a custom domain, add that domain to `connect-src` in the security policy at the top of `hub.html`.
+**Adding a client:** add the person under **Authentication → Users**, then in `staff.html` use **Add a client** and **Give someone access** with their email.
 
-### Changing the knowledge checks
-Edit the questions and answers at the bottom of `supabase/schema.sql` and run the file again in the SQL Editor. Answers live in a `private` table that browsers can't read. If you remove a question, also delete its row from `public.course_questions`.
+If you put the project on a custom domain, add that domain to `connect-src` in the security policy at the top of `business-file.html` and `staff.html`.
 
 ### Tests
-GitHub runs all three suites on every pull request and every push to `main` (`.github/workflows/tests.yml`). The site deploy (`.github/workflows/pages.yml`) leaves out `supabase/`, `.github/` and this README, so the schema and its quiz answers are never published on the website.
+GitHub runs both suites on every pull request and every push to `main` (`.github/workflows/tests.yml`). The site deploy (`.github/workflows/pages.yml`) leaves out `supabase/`, `.github/` and this README.
 
 - **Access rules**, on a local Postgres 16, using stand-ins for Supabase's `auth` and `storage`. Run them against an empty database:
   ```
-  psql -d hubtest -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/tests/rls_test.sql
+  psql -d apptest -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/tests/rls_test.sql
   ```
-- **The page**, in Chromium with a fake Supabase client, and **the demo walkthrough**. These need Playwright:
+- **The pages** (the demo, the live app against a fake Supabase client, and the staff page), in Chromium. This needs Playwright:
   ```
-  node supabase/tests/hub.test.mjs
-  node supabase/tests/demo.test.mjs
+  node supabase/tests/app.test.mjs
   ```
 
 Never run `supabase_stub.sql` on a real Supabase project.
