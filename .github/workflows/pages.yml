@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on (source: GitHub Actions) if it isn't already
+          enablement: true
       # Publish only the website. The database schema (which holds the quiz
       # answer key), tests, README and workflow files stay out of the site.
       - name: Collect site files
