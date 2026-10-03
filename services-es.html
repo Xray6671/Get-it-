@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Servicios — Nevada Business Watch</title>
+<meta name="description" content="Compare los seis servicios de Nevada Business Watch: Business Watch, Contractor Watch, Nonprofit Watch, Research, Business Desk y Seguridad y Calor.">
+<link rel="canonical" href="https://nevadabusinesswatch.com/services-es.html">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Nevada Business Watch">
+<meta property="og:locale" content="es_US">
+<meta property="og:title" content="Servicios — Nevada Business Watch">
+<meta property="og:description" content="Compare los seis servicios de Nevada Business Watch: Business Watch, Contractor Watch, Nonprofit Watch, Research, Business Desk y Seguridad y Calor.">
+<meta property="og:url" content="https://nevadabusinesswatch.com/services-es.html">
+<meta property="og:image" content="https://nevadabusinesswatch.com/assets/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Nevada Business Watch">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Servicios — Nevada Business Watch">
+<meta name="twitter:description" content="Compare los seis servicios de Nevada Business Watch: Business Watch, Contractor Watch, Nonprofit Watch, Research, Business Desk y Seguridad y Calor.">
+<meta name="twitter:image" content="https://nevadabusinesswatch.com/assets/og-image.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,600;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.hero-in{position:relative;z-index:1;max-width:780px;margin:0 auto}
+.head-c h1,.head-c h2{font-size:clamp(1.8rem,3.6vw,2.4rem)}
+.head-c h1 .accent,.head-c h2 .accent{color:var(--gold-lt)}
+/* How it works - numbered cards */
+.steps3{display:flex;flex-wrap:wrap;justify-content:center;gap:24px}
+/* Feature grid (8 items) */
+.g4{display:flex;flex-wrap:wrap;justify-content:center;gap:20px}
+.feat-ic svg{width:22px;height:22px;fill:none;stroke:var(--blue);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+/* Precios */
+.precios{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+/* Precios checklist */
+.pcheck{list-style:none;margin:0 0 22px;padding:0;text-align:left;flex:1}
+.pullquote{background:var(--blue);color:#fff;text-align:center}
+.router-box{max-width:640px;margin:0 auto 40px}
+.router-q{text-align:center;font:800 1.05rem var(--sans);color:var(--gold-lt);margin:0 0 16px}
+.router-grid{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.router-item{display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 18px;text-decoration:none;color:var(--ink);font-weight:600;font-size:.96rem}
+.router-item:hover{border-color:var(--gold);background:var(--surface)}
+.router-item .arrow{color:var(--gold-dk);font-weight:800;flex:none}
+.svc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 26px;display:flex;flex-direction:column;scroll-margin-top:24px;transition:transform .22s cubic-bezier(.2,0,0,1),box-shadow .22s cubic-bezier(.2,0,0,1)}
+.svc-icon{width:54px;height:54px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;margin-bottom:16px;flex:none}
+.svc-icon svg{width:27px;height:27px;fill:none;stroke:var(--gold-lt);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.tier:not(.best):not(.tier.best){opacity:.8}
+.tier:not(.best) .tp{font-weight:600}
+/* ===== Which-plan-do-I-need interactive quiz ===== */
+.planquiz{max-width:720px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:34px 30px}
+.pq-picks{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:0 0 18px}
+.pq-btn{background:var(--surface);border:2px solid var(--line);border-radius:999px;padding:11px 20px;font:600 .88rem var(--sans);color:var(--ink);cursor:pointer;transition:border-color .15s,background .15s,color .15s}
+.pq-btn:hover{border-color:var(--gold)}
+.pq-btn[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--blue-dk)}
+.pq-btn:focus-visible{outline:3px solid var(--gold-dk);outline-offset:2px}
+.pq-hint{text-align:center;color:var(--muted);font-size:.92rem;margin:0}
+.pq-result{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:22px 26px;margin-top:6px;text-align:center}
+.pq-result p{margin:0 0 16px;font-size:1.02rem}
+.pq-result strong{color:var(--gold-lt);font-family:var(--serif)}
+.pq-restart-wrap{text-align:center;margin-top:18px}
+.pq-restart{background:none;border:none;color:var(--gold-lt);font:700 .85rem var(--sans);text-decoration:underline;cursor:pointer;padding:8px}
+.pq-restart:focus-visible{outline:2px solid var(--gold-dk);outline-offset:2px;border-radius:4px}
+.ts-btn{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-family:var(--sans);font-weight:800;line-height:1;padding:4px 7px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s cubic-bezier(.2,0,0,1),border-color .15s cubic-bezier(.2,0,0,1),transform .1s cubic-bezier(.2,0,0,1)}
+.toplang-bar{background:var(--blue-dk,#12172c);color:#fff;text-align:center;padding:9px 14px;font:700 .82rem 'Inter',sans-serif;letter-spacing:.02em}
+</style>
+<script>(function(){try{var s=localStorage.getItem('nbw-text-scale');var steps=[16,18,20];var n=parseInt(s,10);if(!isNaN(n)&&n>=0&&n<steps.length){document.documentElement.style.fontSize=steps[n]+'px';}}catch(e){}})();</script>
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "ProfessionalService",
+  "name": "Nevada Business Watch",
+  "alternateName": "Nevada Business Watch LLC",
+  "description": "Monitoreo de cumplimiento para negocios y contratistas, organización de expedientes y consultoría de seguridad laboral para negocios de Nevada.",
+  "image": "assets/og-image.jpg",
+  "logo": "assets/logo.jpg",
+  "telephone": "+1-702-343-2387",
+  "email": "info@nbw.com",
+  "areaServed": {
+    "@type": "State",
+    "name": "Nevada"
+  },
+  "priceRange": "$$",
+  "availableLanguage": [
+    "English",
+    "Spanish"
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Servicios de Nevada Business Watch",
+    "itemListElement": [
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Business Watch", "description": "Licencias, seguros y fechas de renovación del negocio organizados y vigilados mensualmente."}},
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Contractor Watch", "description": "Licencia de contratista, fianza, compensación para trabajadores y documentos de preparación laboral organizados y vigilados."}},
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Nonprofit Watch", "description": "Estado de la organización sin fines de lucro, registro de solicitación caritativa y fechas límite del Formulario 990 del IRS organizados y vigilados."}},
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Business Research", "description": "Investigación de verificación de un negocio, contratista o proveedor antes de contratar, firmar o asociarse."}},
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Business Desk", "description": "Ayuda con un aviso administrativo o problema de papeleo puntual."}},
+      {"@type": "Offer", "itemOffered": {"@type": "Service", "name": "Seguridad Laboral y Cumplimiento por Calor", "description": "Programas escritos de seguridad y planes de prevención de enfermedades por calor, hechos por nosotros o como kit para hacerlo usted mismo."}}
+    ]
+  }
+}</script>
+<!-- Analytics: add a real analytics script once a production domain is live (see the launch plan doc, Step 1). -->
+</head>
+
+<body><div class="toplang-bar"><div class="wrap"><a href="services.html">English</a><span class="sep" aria-hidden="true">|</span><a href="services-es.html" class="active" aria-current="true">Español</a><span class="ts-group" role="group" aria-label="Tamaño de texto"><button type="button" class="ts-btn" id="tsDec" aria-label="Reducir tamaño de texto">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Restablecer tamaño de texto">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Aumentar tamaño de texto">A+</button></span></div></div>
+<header>
+  <div class="wrap bar">
+    <a class="brandmark brandmark-logo" href="index-es.html" aria-label="Nevada Business Watch">
+      <img src="assets/logo.jpg" width="396" height="140" alt="Logotipo de Nevada Business Watch">
+    </a>
+    <nav id="siteNav"><ul>
+      <li><a class="navlink" href="index-es.html">Inicio</a></li>
+      <li><a class="navlink active" href="services-es.html" aria-current="page">Servicios</a></li>
+      <li><a class="navlink" href="safety-es.html">Seguridad y Calor</a></li>
+      <li><a class="navlink" href="about-es.html">Acerca de</a></li>
+      <li><a class="navlink" href="contact-es.html">Contacto</a></li>
+      <li><a class="navlink" href="lessons-es.html">Lecciones Gratuitas</a></li>
+    </ul></nav>
+    <button type="button" class="menu-ic" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Abrir menú"><span></span><span></span><span></span></button>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:28px"><p style="font-size:.9rem;color:var(--muted)">Ir a: <a href="#services" style="color:var(--gold-dk);font-weight:600">Servicios</a> &middot; <a href="#precios" style="color:var(--gold-dk);font-weight:600">Precios</a> &middot; <a href="#lessons" style="color:var(--gold-dk);font-weight:600">Lecciones Gratuitas</a></p></div>
+<section id="services">
+  <div class="wrap">
+    <div class="head-c">
+      <p class="eyebrow">01 &mdash; Servicios</p>
+      <h1>Seis formas <span class="accent">en que ayudamos</span></h1>
+      <p class="lead">Elija la que le convenga. La mayoría de los negocios comienzan con Business Watch o Contractor Watch.</p>
+    </div>
+    <p class="problem-note" style="max-width:700px;margin:0 auto 40px"><strong>Nosotros vigilamos y le avisamos &mdash; no presentamos trámites por usted.</strong> Sus licencias, seguros y renovaciones permanecen a su nombre y bajo su control. Nosotros organizamos el expediente, seguimos las fechas y le avisamos lo que necesita atención; usted (o su agente) toma la acción real. Nada se presenta, cambia o env&iacute;a en su nombre sin su autorización.</p>
+    <div class="router-box"><p class="router-q">&iquest;No está seguro de cuál plan le conviene?</p><ul class="router-grid"><li><a class="router-item" href="#business-watch"><span>Tengo un negocio y quiero estar al día con las renovaciones</span><span class="arrow">&rarr;</span></a></li><li><a class="router-item" href="#contractor-watch"><span>Soy contratista con licencia</span><span class="arrow">&rarr;</span></a></li><li><a class="router-item" href="#business-research"><span>Necesito verificar un negocio o contratista antes de contratarlo o asociarme</span><span class="arrow">&rarr;</span></a></li><li><a class="router-item" href="#business-desk"><span>Necesito ayuda para establecer un negocio nuevo desde cero</span><span class="arrow">&rarr;</span></a></li><li><a class="router-item" href="#nonprofit-watch"><span>Dirijo una organizaci&oacute;n sin fines de lucro y necesito mantenerme en regla</span><span class="arrow">&rarr;</span></a></li><li><a class="router-item" href="#safety-heat"><span>Necesito un plan escrito de seguridad o de calor</span><span class="arrow">&rarr;</span></a></li></ul></div>
+    <div class="svc-grid">
+      <article class="svc-card" id="contractor-watch">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 16a8.5 8.5 0 0117 0"/><path d="M2 16h20"/><path d="M12 5.5v4"/><path d="M9.2 6.6l.7.7M14.8 6.6l-.7.7"/></svg></div>
+        <h3>Contractor Watch</h3>
+        <p class="svc-tag">&ldquo;Mantener listos mis registros de contratista.&rdquo;</p>
+        <p class="svc-desc">Licencia, fianza, compensación para trabajadores y papeleo de preparación laboral, organizados en un solo lugar. Lo vigilamos para que esté listo para su próxima licitación o inspección.</p>
+        <details><summary>Qué incluye</summary>
+          <ul>
+            <li>Estado de la licencia, clasificación, vencimiento y calificador</li>
+            <li>Entidad, licencia de negocio, nombre comercial (DBA) y dirección</li>
+            <li>Certificados de responsabilidad civil general y fechas de vencimiento</li>
+            <li>Póliza de compensación para trabajadores y fechas de vencimiento</li>
+            <li>Cartel D-1 de compensación para trabajadores en el expediente y vigente</li>
+            <li>Documentos de preparación para proveedores, licitaciones y contratación gubernamental</li>
+          </ul>
+        </details>
+        <p class="svc-price">Desde <strong>$199/mes</strong></p>
+        <p style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="reports/contractor-watch-quickcheck-sample.pdf">Ver muestra de Verificaci&oacute;n R&aacute;pida</a></p>
+      </article>
+      <article class="svc-card" id="business-watch">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 8h6M9 12h4"/><circle cx="17.5" cy="17.5" r="4"/><path d="M17.5 16v1.7l1.3 1.1"/></svg></div>
+        <h3>Business Watch</h3>
+        <p class="svc-tag">&ldquo;Mantener mi negocio organizado.&rdquo;</p>
+        <p class="svc-desc">Un expediente para las licencias, seguros y fechas de renovación de su negocio. Lo vigilamos cada mes para que nada venza sin que usted lo sepa.</p>
+        <details><summary>Qué incluye</summary>
+          <ul>
+            <li>Los registros de su negocio organizados en un solo expediente</li>
+            <li>Seguimiento de licencias estatales y locales seleccionadas</li>
+            <li>Fechas de renovación y vencimiento señaladas con anticipación</li>
+            <li>Seguimiento del vencimiento de seguros y otros documentos</li>
+            <li>Carteles obligatorios de compensación para trabajadores: D-1, más D-22 si tiene empleados que reciben propinas</li>
+            <li>Una revisión anual de su expediente</li>
+          </ul>
+        </details>
+        <p class="svc-price">Desde <strong>$149/mes</strong></p>
+        <p style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="reports/business-watch-quickcheck-sample.pdf">Ver muestra de Verificaci&oacute;n R&aacute;pida</a></p>
+      </article>
+      <article class="svc-card" id="nonprofit-watch">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.3a4.4 4.4 0 018-2.6 4.4 4.4 0 018 2.6c0 5.7-7.5 10.3-7.5 10.3z"/><path d="M9 9.5h1.6l1 2.2 1-4 .9 1.8H15"/></svg></div>
+        <h3>Nonprofit Watch</h3>
+        <p class="svc-tag">&ldquo;Mantener a mi organizaci&oacute;n sin fines de lucro en regla.&rdquo;</p>
+        <p class="svc-desc">Estado de la organizaci&oacute;n sin fines de lucro, registro de solicitaci&oacute;n caritativa y fechas l&iacute;mite de presentaci&oacute;n ante el IRS, organizados en un expediente. Lo vigilamos para que su organizaci&oacute;n se mantenga en regla con el estado y el IRS.</p>
+        <details><summary>Qu&eacute; incluye</summary>
+          <ul>
+            <li>Estado de la corporaci&oacute;n sin fines de lucro en Nevada y lista anual seguidos</li>
+            <li>Registro de solicitaci&oacute;n caritativa seguido, cuando se requiera</li>
+            <li>Fecha l&iacute;mite de presentaci&oacute;n del Formulario 990 del IRS seguida</li>
+            <li>Agente registrado, oficiales y directores en el expediente</li>
+            <li>Fechas de renovaci&oacute;n y vencimiento se&ntilde;aladas con anticipaci&oacute;n</li>
+            <li>Una revisi&oacute;n anual de su expediente</li>
+          </ul>
+        </details>
+        <p class="svc-price">Desde <strong>$129/mes</strong></p>
+      </article>
+      <article class="svc-card" id="business-research">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="10.2" cy="10.2" r="6.2"/><path d="M7.6 8.7h5.2M7.6 11.2h3.4"/><path d="M14.9 14.9L20 20"/></svg></div>
+        <h3>Business Research</h3>
+        <p class="svc-tag">&ldquo;Ayúdeme a saber con quién estoy tratando.&rdquo;</p>
+        <p class="svc-desc">Antes de contratar a un contratista, firmar con un proveedor o aceptar a un cliente, verificamos lo que realmente muestra el registro público sobre ellos.</p>
+        <details><summary>Qué incluye</summary>
+          <ul>
+            <li>Verificación de negocio</li>
+            <li>Verificación de contratista antes de contratar</li>
+            <li>Investigación de proveedores y socios de negocio</li>
+            <li>Investigación de competidores</li>
+            <li>Investigación sobre un negocio que podría comprar</li>
+          </ul>
+          <p class="small">Esta es una verificaci&oacute;n de registros p&uacute;blicos, no una investigaci&oacute;n privada, y no es un informe de consumidor para fines de selecci&oacute;n de empleo, cr&eacute;dito, arrendamiento o seguros. La investigaci&oacute;n le brinda informaci&oacute;n para considerar &mdash; no tomamos decisiones de contrataci&oacute;n, compra, inversi&oacute;n, legales o financieras por usted.</p>
+        </details>
+        <p class="svc-price">Desde <strong>$149 por informe</strong></p>
+        <p style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="reports/research-quickcheck-sample.pdf">Ver muestra de Verificaci&oacute;n R&aacute;pida</a></p>
+      </article>
+      <article class="svc-card" id="business-desk">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 13h4.3l1.4 2.3h4.6L15.7 13H20"/><path d="M4 13 5.6 5h12.8L20 13"/><path d="M4 13v5.5h16V13"/></svg></div>
+        <h3>Business Desk</h3>
+        <p class="svc-tag">&ldquo;Ayúdeme a resolver este asunto administrativo.&rdquo;</p>
+        <p class="svc-desc">Un problema puntual de papeleo, un aviso confuso, un formulario en el que está atorado. Cuéntenos qué sucede y le diremos si podemos ayudar.</p>
+        <details><summary>Qué incluye</summary>
+          <ul>
+            <li>Revisión de avisos gubernamentales: de qué se trata, plazos y qué se solicita</li>
+            <li>Organización de documentos en su expediente de negocio</li>
+            <li>Contactoos de agencias e instrucciones públicas</li>
+            <li>Seguimiento de renovaciones y pendientes</li>
+          </ul>
+          <p class="small">Le explicamos de qu&eacute; trata un aviso y cu&aacute;ndo vence &mdash; no interpretamos sus derechos u obligaciones legales. Para asesor&iacute;a legal, consulte a un abogado.</p>
+        </details>
+        <p class="svc-price">Desde <strong>$99/mes</strong></p>
+        <p style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="reports/business-desk-quickcheck-sample.pdf">Ver muestra de Verificaci&oacute;n R&aacute;pida</a></p>
+      </article>
+      <article class="svc-card" id="safety-heat">
+        <div class="svc-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8.5-7 9-4-.5-7-4-7-9V6z"/><circle cx="12" cy="11" r="2.2"/><path d="M12 7.4v.6M12 14v.6M8.8 11h.6M14.6 11h.6M9.9 8.9l.4.4M13.7 13l.4.4M14.1 8.9l-.4.4M9.9 13l.4-.4"/></svg></div>
+        <h3>Seguridad y Calor</h3>
+        <p class="svc-tag">&ldquo;Quiero mi programa de seguridad y mi plan de calor bien hechos.&rdquo;</p>
+        <p class="svc-desc">Nevada exige un programa escrito de seguridad con 11 o más empleados. También exige un plan escrito de calor donde los trabajadores enfrentan calor. Los escribimos, capacitamos a su equipo y los mantenemos al día, o hágalo usted mismo con nuestro kit.</p>
+        <details><summary>Qué incluye</summary>
+          <ul>
+            <li>Revisión Gratuita de Calor y Seguridad (30 minutos)</li>
+            <li>Recorrido del sitio y análisis escrito de riesgos por calor</li>
+            <li>Plan de prevención de enfermedades por calor y programa escrito de seguridad</li>
+            <li>Capacitación de la cuadrilla en inglés o español, con registros firmados</li>
+          </ul>
+        </details>
+        <p class="svc-price">Kit Hágalo Usted <strong>$199</strong> &middot; Hecho por nosotros desde <strong>$1,200</strong></p>
+        <p style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-outline" href="safety-es.html">Más información</a><a class="btn btn-outline" href="reports/safety-heat-quickcheck-sample.pdf">Ver muestra de Verificaci&oacute;n R&aacute;pida</a></p>
+      </article>
+    </div>
+    <p style="text-align:center;margin-top:32px"><a class="btn btn-outline" href="#precios">Comparar planes y precios</a></p>
+  </div>
+</section>
+
+<section id="audience">
+  <div class="wrap">
+    <div class="head-c">
+      <p class="eyebrow">02 &mdash; Para Quién Es</p>
+      <h2>Diseñado para los negocios que <span class="accent">mantienen a Nevada en movimiento.</span></h2>
+    </div>
+    <div class="g4" style="--fb:260px">
+      <article class="feat">
+        <div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 16a8.5 8.5 0 0117 0"/><path d="M2 16h20"/><path d="M12 5.5v4"/></svg></div>
+        <h3>Contratistas</h3>
+        <ul class="audience-list"><li>Contratistas generales</li><li>Subcontratistas</li><li>Oficios de construcción</li><li>Paisajistas</li><li>Remodeladores</li></ul>
+      </article>
+      <article class="feat">
+        <div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.5 3.5a3 3 0 00-4 4L4 14l2 2 6.5-6.5a3 3 0 004-4l-2.2 2.2-1.5-1.5z"/><path d="M5 19l-1.5 1.5"/></svg></div>
+        <h3>Negocios de Servicio</h3>
+        <ul class="audience-list"><li>Limpieza</li><li>Servicios de propiedades</li><li>Transporte</li><li>Seguridad</li><li>Mantenimiento</li></ul>
+      </article>
+      <article class="feat">
+        <div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></svg></div>
+        <h3>Negocios Locales</h3>
+        <ul class="audience-list"><li>Restaurantes</li><li>Comercio minorista</li><li>Salónes de belleza</li><li>Servicios profesionales</li><li>Pequeñas oficinas</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="filecontents" class="problem">
+  <div class="wrap">
+    <div class="head-c">
+      <p class="eyebrow">05 &mdash; Su Expediente de Negocio</p>
+      <h2>Qué va en <span class="accent">su expediente</span></h2>
+      <p class="lead">Cinco categorías. Todo en un solo lugar.</p>
+    </div>
+    <div class="g4">
+      <article class="feat"><div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="13" rx="1.5"/><path d="M7 7h10M7 10h6"/><path d="M9 16l-1.5 5 3-1.5 3 1.5-1.5-5"/></svg></div><h3>01 &mdash; Registro de Negocio</h3><ul class="audience-list"><li>Estado de la entidad en Nevada</li><li>Licencia estatal de negocio</li><li>Nombre comercial (DBA) / nombre ficticio</li><li>Información de propiedad</li></ul></article>
+      <article class="feat"><div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M6 16c0-1.4 1-2.4 2-2.4s2 1 2 2.4"/><path d="M13 9h6M13 12h6M13 15h4"/></svg></div><h3>02 &mdash; Licencias</h3><ul class="audience-list"><li>Licencias municipales</li><li>Licencias del condado</li><li>Licencias de contratista</li><li>Licencias profesionales</li><li>Registros de oficio</li></ul></article>
+      <article class="feat"><div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3 8.5-7 9-4-.5-7-4-7-9V6z"/><path d="M12 8v6M9 11h6"/></svg></div><h3>03 &mdash; Compensación para Trabajadores</h3><ul class="audience-list"><li>Documentación de cobertura</li><li>Información de la póliza</li><li>Fechas de vencimiento</li><li>Registros de estado</li></ul></article>
+      <article class="feat"><div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 11a8 8 0 0116 0z"/><path d="M12 11v8a2 2 0 01-2 2"/></svg></div><h3>04 &mdash; Seguro</h3><ul class="audience-list"><li>Responsabilidad civil general</li><li>Auto comercial</li><li>Cobertura profesional</li><li>Certificados de seguro</li><li>Fechas de renovación</li></ul></article>
+      <article class="feat"><div class="feat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M8 8h8M8 11h8"/><path d="M8.5 15l2 2 4-4.5"/></svg></div><h3>05 &mdash; Permisos y Otros Registros</h3><ul class="audience-list"><li>Permisos</li><li>Certificaciones</li><li>Fianzas</li><li>Documentos de negocio requeridos</li><li>Registros proporcionados por el cliente</li></ul></article>
+    </div>
+  </div>
+</section>
+
+<section id="status">
+  <div class="wrap">
+    <div class="head-c">
+      <p class="eyebrow">06 &mdash; Estado</p>
+      <h2>Un expediente vivo <span class="accent">&mdash; no un archivero.</span></h2>
+      <p class="lead">Su expediente de negocio se actualiza continuamente conforme cambian los documentos y la información.</p>
+    </div>
+    <div class="status-grid">
+      <div class="status-card"><p class="status-label"><span class="status-dot" style="background:#2f9e5a"></span>Vigente</p><p>Los registros aparecen vigentes según la información revisada.</p></div>
+      <div class="status-card"><p class="status-label"><span class="status-dot" style="background:var(--gold-dk)"></span>Atención</p><p>Algo está por vencer, falta, es inconsistente o necesita seguimiento.</p></div>
+      <div class="status-card"><p class="status-label"><span class="status-dot" style="background:var(--red)"></span>Vencido / Atrasado</p><p>Una fecha ya pasó o un registro requerido necesita atención inmediata.</p></div>
+      <div class="status-card"><p class="status-label"><span class="status-dot" style="background:#9a9488"></span>Se Necesita Información</p><p>Necesitamos un documento, una aclaración o información actualizada de su parte.</p></div>
+    </div>
+    <p class="problem-note" style="font-size:.92rem">Esto es mejor que decir &ldquo;Cumple / No Cumple.&rdquo; Esa distinción importa porque, en última instancia, su negocio es responsable de su cumplimiento legal y regulatorio. Su servicio es monitoreo administrativo y organización de registros, no una certificación legal.</p>
+  </div>
+</section>
+
+<section id="precios" class="precios">
+  <div class="wrap">
+    <div class="head-c">
+      <p class="eyebrow">10 &mdash; Precios</p>
+      <h2>Planes y <span class="accent">precios</span></h2>
+      <p class="lead">Cada servicio comienza con una revisión única. Los planes mensuales mantienen su expediente al día.</p>
+      <p style="margin-top:10px;font-size:.92rem"><a href="#services" style="color:var(--gold-dk);font-weight:700">Vea una muestra de informe para cada servicio &uarr;</a></p>
+    </div>
+    <div class="svc-grid">
+      <article class="plan-card">
+        <h3>Contractor Watch</h3>
+        <p class="plan-sub">Para contratistas de Nevada.</p>
+        <div class="tier"><div class="tline"><span>Contractor Check</span><span class="tp">$149 <small>una vez</small></span></div><p>Una revisión de preparación frente a lo que normalmente piden los contratistas generales y las agencias, más su expediente de contratista.</p></div>
+        <div class="tier"><div class="tline"><span>Revisión Trimestral</span><span class="tp">$79 <small>/trimestre</small></span></div><p>&iquest;No est&aacute; listo para el monitoreo mensual? Revisamos el estado de su licencia, fianza y seguro cada tres meses.</p></div>
+        <div class="tier best"><div class="tline"><span>Contractor Watch</span><span class="tp">$199 <small>/mes</small></span></div><p>Seguimiento de fechas de licencia, seguro y compensación para trabajadores, con recordatorios antes de que venzan.</p></div>
+        <div class="tier"><div class="tline"><span>Contractor Watch Plus</span><span class="tp">$299 <small>/mes</small></span></div><p>Agrega revisiones mensuales de registros públicos, un informe de estado mensual y avisos entre informes.</p></div>
+      </article>
+      <article class="plan-card pop">
+        <h3>Business Watch</h3>
+        <p class="plan-sub">Para pequeños negocios.</p>
+        <div class="tier"><div class="tline"><span>Business Check</span><span class="tp">$99 <small>una vez</small></span></div><p>Una revisión de sus registros y un expediente de negocio organizado con una lista de pendientes.</p></div>
+        <div class="tier"><div class="tline"><span>Revisión Trimestral</span><span class="tp">$59 <small>/trimestre</small></span></div><p>&iquest;No est&aacute; listo para el monitoreo mensual? Revisamos su expediente cada tres meses y le avisamos de lo que se acerque a su fecha l&iacute;mite.</p></div>
+        <div class="tier best"><div class="tline"><span>Business Watch</span><span class="tp">$149 <small>/mes</small></span></div><p>Seguimiento de fechas de licencias y renovaciones, recordatorios antes de que venzan, y un informe de estado trimestral.</p></div>
+        <div class="tier"><div class="tline"><span>Business Watch Plus</span><span class="tp">$249 <small>/mes</small></span></div><p>Agrega revisiones mensuales de registros públicos, un informe de estado mensual y avisos entre informes.</p></div>
+      </article>
+      <article class="plan-card">
+        <h3>Nonprofit Watch</h3>
+        <p class="plan-sub">Para organizaciones 501(c)(3) y otras sin fines de lucro.</p>
+        <div class="tier"><div class="tline"><span>Nonprofit Check</span><span class="tp">$99 <small>una vez</small></span></div><p>Una revisi&oacute;n de los registros de su organizaci&oacute;n y un expediente organizado con una lista de pendientes.</p></div>
+        <div class="tier best"><div class="tline"><span>Nonprofit Watch</span><span class="tp">$129 <small>/mes</small></span></div><p>Seguimiento del estado ante el estado, del registro de solicitaci&oacute;n caritativa y de la fecha l&iacute;mite del Formulario 990 del IRS, con recordatorios antes de que venzan.</p></div>
+      </article>
+      <article class="plan-card">
+        <h3>Business Research</h3>
+        <p class="plan-sub">Precio por informe.</p>
+        <div class="tier"><div class="tline"><span>Business Verification</span><span class="tp"><small>desde</small> $149</span></div></div>
+        <div class="tier"><div class="tline"><span>Contractor Verification</span><span class="tp"><small>desde</small> $295</span></div></div>
+        <div class="tier"><div class="tline"><span>Vendor or Competitor Research</span><span class="tp"><small>desde</small> $295</span></div></div>
+        <div class="tier"><div class="tline"><span>Business Acquisition Research</span><span class="tp"><small>desde</small> $495</span></div></div>
+      </article>
+      <article class="plan-card">
+        <h3>Business Desk</h3>
+        <p class="plan-sub">Apoyo administrativo directo y personal.</p>
+        <div class="tier"><div class="tline"><span>Business Desk</span><span class="tp"><small>desde</small> $99 <small>/mes</small></span></div><p>Ayuda con avisos, formularios y problemas de papeleo, más seguimiento de pendientes.</p></div>
+      </article>
+      <article class="plan-card">
+        <h3>Seguridad y Calor</h3>
+        <p class="plan-sub">Programa escrito de seguridad, plan de calor y capacitación.</p>
+        <div class="tier"><div class="tline"><span>Revisión de Calor y Seguridad</span><span class="tp">Gratis</span></div></div>
+        <div class="tier"><div class="tline"><span>Kit Hágalo Usted</span><span class="tp">$199 <small>pago único</small></span></div></div>
+        <div class="tier"><div class="tline"><span>Kit + Revisión Experta</span><span class="tp">$399 <small>pago único</small></span></div></div>
+        <div class="tier best"><div class="tline"><span>Plan de Calor (hecho por nosotros)</span><span class="tp">$1,200 <small>pago único</small></span></div></div>
+        <div class="tier"><div class="tline"><span>Programa Completo + Plan de Calor</span><span class="tp">$2,400 <small>pago único</small></span></div></div>
+        <div class="tier"><div class="tline"><span>Siempre Listo</span><span class="tp">$200 <small>/mes</small></span></div><p><a href="safety-es.html#safety-packages" style="color:var(--gold-lt);font-weight:700">Ver detalles de paquetes &rarr;</a></p></div>
+      </article>
+    </div>
+    <p class="problem-note" style="font-size:.9rem;margin-top:28px">Los planes mensuales comienzan con la creación del expediente y una revisión inicial, ambas de pago único. Las cuotas municipales, estatales, de la junta de contratistas y de seguros las paga usted directamente a la agencia. El trabajo fuera de su plan se cotiza por separado.</p>
+
+    <div class="head-c" style="margin-top:56px">
+      <h3 style="font-family:var(--serif);font-size:1.4rem">¿Qué plan necesito?</h3>
+      <p class="lead" style="max-width:600px">Toque la frase que más se parezca a usted.</p>
+    </div>
+    <div class="planquiz" id="planquiz">
+      <div class="pq-picks" role="group" aria-label="Elija su situación">
+        <button type="button" class="pq-btn" data-r="0" aria-pressed="false">No estoy seguro de qué registros tengo</button><button type="button" class="pq-btn" data-r="1" aria-pressed="false">Quiero todos mis papeles en un solo lugar</button><button type="button" class="pq-btn" data-r="2" aria-pressed="false">Se me olvidan las fechas de renovación</button><button type="button" class="pq-btn" data-r="3" aria-pressed="false">Quiero que alguien revise si hay problemas cada mes</button><button type="button" class="pq-btn" data-r="4" aria-pressed="false">Un proveedor, agencia o licitación me está pidiendo mi papeleo</button><button type="button" class="pq-btn" data-r="5" aria-pressed="false">Necesito verificar que una licencia o registro sea válido</button><button type="button" class="pq-btn" data-r="6" aria-pressed="false">Prefiero trabajar en español</button><button type="button" class="pq-btn" data-r="7" aria-pressed="false">Mi equipo trabaja en el calor</button><button type="button" class="pq-btn" data-r="8" aria-pressed="false">Necesito un programa de seguridad por escrito</button><button type="button" class="pq-btn" data-r="9" aria-pressed="false">Dirijo una organizaci&oacute;n sin fines de lucro y necesito mantenerme en regla</button>
+      </div>
+      <p class="pq-hint" id="pq-hint">Elija una opción arriba para ver nuestra sugerencia.</p>
+      <div class="pq-result" data-r="0" hidden><p><strong>Comience con:</strong> Business Check ($99) o Contractor Check ($149), pago único.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="1" hidden><p><strong>Comience con:</strong> Business Check ($99) o Contractor Check ($149), pago único.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="2" hidden><p><strong>Comience con:</strong> Business Watch ($149/mes) o Contractor Watch ($199/mes), más una cuota única de inicio.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="3" hidden><p><strong>Comience con:</strong> Business Watch Plus ($249/mes) o Contractor Watch Plus ($299/mes), más una cuota única de inicio.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="4" hidden><p><strong>Comience con:</strong> Contractor Check ($149) para prepararse ahora, luego Contractor Watch ($199/mes) para mantenerse listo.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="5" hidden><p><strong>Comience con:</strong> los planes de Business Research comienzan en $149 por revisión.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="6" hidden><p><strong>Comience con:</strong> incluido en todos los planes. Elija inglés o español al inscribirse.</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div><div class="pq-result" data-r="7" hidden><p><strong>Comience con:</strong> una Revisión Gratuita de Calor y Seguridad, luego el Plan de Calor ($1,200) o el Kit Hágalo Usted ($199).</p><a class="btn btn-primary" href="safety-es.html">Ver Seguridad y Calor &rarr;</a></div><div class="pq-result" data-r="8" hidden><p><strong>Comience con:</strong> el Programa de Seguridad Completo + Plan de Calor ($2,400) o el Kit Hágalo Usted ($199).</p><a class="btn btn-primary" href="safety-es.html">Ver Seguridad y Calor &rarr;</a></div><div class="pq-result" data-r="9" hidden><p><strong>Comience con:</strong> Nonprofit Check ($99), pago &uacute;nico, o Nonprofit Watch ($129/mes).</p><a class="btn btn-primary" href="contact-es.html#contact">Preguntar sobre esto &rarr;</a></div>
+      <p class="pq-restart-wrap"><button type="button" class="pq-restart" hidden>&#8634; Empezar de nuevo, elegir otra respuesta</button></p>
+    </div>
+  </div>
+</section>
+
+<section id="lessons" class="lessons">
+  <div class="wrap" style="max-width:820px">
+    <p class="eyebrow" style="color:var(--gold-lt)">11 &mdash; Lecciones Gratuitas</p>
+    <h2 style="color:#fff">ComplyCheck: lecciones gratuitas de cumplimiento <span class="accent">de Nevada</span></h2>
+    <p class="lead">ComplyCheck es nuestra guía gratuita: resúmenes en lenguaje sencillo de las reglas de Nevada sobre compensación para trabajadores, contratistas independientes, penalidades y licencias de contratista. Es información educativa, no asesoría legal. Cuando esté listo, Nevada Business Watch mantiene esos documentos y fechas en un solo expediente.</p>
+    <div class="freechips">
+      <span>Gratis</span><span>No necesita cuenta</span><span>Lenguaje sencillo</span><span>Lecciones breves</span>
+    </div>
+    <a class="btn btn-primary" href="lessons-es.html">Ver las lecciones gratuitas</a> <a class="btn btn-outline" style="border-color:rgba(255,255,255,.5);color:#fff" href="contact-es.html#contact">Pregunte sobre ComplyCheck</a>
+  </div>
+</section>
+<footer>
+  <div class="wrap">
+    <div class="brandmark brandmark-logo">
+      <img loading="lazy" src="assets/logo.jpg" width="396" height="140" alt="Logotipo de Nevada Business Watch">
+    </div>
+    <p style="font-weight:700;color:#c7d3e5">Monitoreo de Cumplimiento para Negocios, Contratistas y Organizaciones Sin Fines de Lucro</p>
+    <p style="margin-top:2px"><a href="tel:+17023432387" style="color:#9fb0c8;text-decoration:none;font-weight:600">702-343-2387</a> &nbsp;&middot;&nbsp; <a href="mailto:info@nbw.com" style="color:#9fb0c8;text-decoration:none;font-weight:600">info@nbw.com</a></p>
+    <p><strong style="color:#c7d3e5">Servicios administrativos y de consultoría de seguridad laboral.</strong> Nuestros planes y capacitación de seguridad son consultoría, no asesoría legal. Organizamos registros, monitoreamos ciertos registros públicos y documentos proporcionados por el cliente, damos seguimiento a las fechas de renovación y señalamos los asuntos que puedan necesitar atención. No brindamos asesoría legal, no determinamos el cumplimiento legal, no formamos negocios ni representamos a clientes ante agencias gubernamentales.</p>
+    <p>Nevada Business Watch LLC es una empresa privada. No está afiliada ni respaldada por el Estado de Nevada, la Secretaría de Estado de Nevada, ni ninguna agencia gubernamental.</p>
+    <p style="margin-top:18px">&copy; 2026 Nevada Business Watch LLC. Inglés y Español.</p>
+    <ul class="notlist"><li><a href="privacy-es.html">Aviso de Privacidad</a></li><li><a href="terms-es.html">Términos de Servicio</a></li></ul>
+  </div>
+</footer>
+
+
+<script>
+(function(){
+  'use strict';
+  document.addEventListener('DOMContentLoaded', function(){
+    var root = document.getElementById('planquiz');
+    if(!root) return;
+    var picks = root.querySelectorAll('.pq-btn');
+    var hint = root.querySelector('.pq-hint');
+    var results = root.querySelectorAll('.pq-result');
+    var restart = root.querySelector('.pq-restart');
+
+    function reset(){
+      picks.forEach(function(x){ x.setAttribute('aria-pressed', 'false'); });
+      results.forEach(function(r){ r.hidden = true; });
+      if(hint) hint.hidden = false;
+      if(restart) restart.hidden = true;
+    }
+
+    picks.forEach(function(b){
+      b.addEventListener('click', function(){
+        picks.forEach(function(x){ x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        if(hint) hint.hidden = true;
+        results.forEach(function(r){ r.hidden = r.getAttribute('data-r') !== b.getAttribute('data-r'); });
+        if(restart) restart.hidden = false;
+        var shown = root.querySelector('.pq-result:not([hidden])');
+        if(shown) shown.scrollIntoView({behavior:'smooth', block:'nearest'});
+      });
+    });
+
+    if(restart) restart.addEventListener('click', reset);
+  });
+})();
+</script>
+
+<script>
+(function(){
+  var toggle = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!toggle || !nav) return;
+  var list = nav.querySelector('ul');
+  function closeMenu(){
+    list.classList.remove('open');
+    toggle.setAttribute('aria-expanded','false');
+    toggle.setAttribute('aria-label','Abrir menú');
+  }
+  function openMenu(){
+    list.classList.add('open');
+    toggle.setAttribute('aria-expanded','true');
+    toggle.setAttribute('aria-label','Cerrar menú');
+  }
+  toggle.addEventListener('click', function(){
+    if(list.classList.contains('open')){ closeMenu(); } else { openMenu(); }
+  });
+  list.addEventListener('click', function(e){
+    if(e.target && e.target.classList && e.target.classList.contains('navlink')){
+      closeMenu();
+    }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && list.classList.contains('open')){
+      closeMenu();
+      toggle.focus();
+    }
+  });
+  document.addEventListener('click', function(e){
+    if(list.classList.contains('open') && !nav.contains(e.target) && !toggle.contains(e.target)){
+      closeMenu();
+    }
+  });
+  window.addEventListener('resize', function(){
+    if(window.innerWidth > 820 && list.classList.contains('open')){
+      closeMenu();
+    }
+  });
+})();
+</script>
+
+
+
+<script src="site.js" defer></script>
+</body>
+</html>

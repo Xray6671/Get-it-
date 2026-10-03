@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /gallery.html
+
+Sitemap: https://nevadabusinesswatch.com/sitemap.xml
