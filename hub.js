@@ -38,6 +38,10 @@
   function daysBetween(fromStr, toStr) {
     return Math.round((Date.parse(toStr + "T00:00:00Z") - Date.parse(fromStr + "T00:00:00Z")) / 86400000);
   }
+  const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  function fmtDate(dateStr) {
+    return dateStr ? shortDate.format(new Date(dateStr + "T00:00:00Z")) : "";
+  }
   function fmtSize(bytes) {
     const kb = Math.max(1, Math.round(bytes / 1024));
     return kb >= 1024 ? (kb / 1024).toFixed(1) + " MB" : kb + " KB";
@@ -140,6 +144,31 @@
     return { key: left < 0 ? "expired" : left <= DUE_SOON_DAYS ? "soon" : "valid", last, due };
   }
 
+  const svg = body => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
+  const ICON = {
+    alert: svg('<path d="M12 7v6"/><path d="M12 17h.01"/>'),
+    clock: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'),
+    people: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6.5 6.5 0 013.5 6"/>'),
+    check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+    sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+    flask: svg('<path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A1.7 1.7 0 006 21h12a1.7 1.7 0 001.5-2.5L14 9V3"/><path d="M7.5 15h9"/>'),
+    doc: svg('<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/>'),
+    home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>'),
+    badge: svg('<path d="M12 3l2.4 1.8 3 .1.9 2.9 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.9-3 .1L12 21l-2.4-1.8-3-.1-.9-2.9-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.9 3-.1z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
+    folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>')
+  };
+  const COURSE_ICON = { heat: ICON.sun, hazcom: ICON.flask };
+
+  function appbar(withSignOut) {
+    return `
+      <header class="appbar">
+        <div class="appbar-in">
+          <img src="assets/logo.jpg" alt="Nevada Business Watch" width="146" height="40">
+          ${withSignOut ? `<button class="btn-ghost" data-action="sign-out">Sign out</button>` : ""}
+        </div>
+      </header>`;
+  }
+
   const PILLS = {
     valid: ["pill-ok", "Current"],
     soon: ["pill-warn", "Due soon"],
@@ -155,11 +184,11 @@
   // VIEWS: signed out
   // ==========================================================================
   function viewNotConfigured() {
-    return `
-      <div class="panel narrow">
+    return appbar(false) + `
+      <div class="wrap"><div class="panel narrow">
         <h2>Hub not set up yet</h2>
         <p class="kicker">Add your Supabase project URL and anon key to <code>hub-config.js</code>. See the README for the steps.</p>
-      </div>`;
+      </div></div>`;
   }
 
   function authMsgHtml() {
@@ -189,10 +218,10 @@
         ${m === "signin" ? `<button type="button" class="btn-link" data-auth-mode="reset">Forgot password?</button>` : ""}
       </div>`;
 
-    return `
-      <div class="panel narrow">
-        <h1 style="margin-bottom: 4px;">Compliance Hub</h1>
-        <p class="kicker" style="margin-bottom: 16px;">Nevada Business Watch</p>
+    return appbar(false) + `
+      <div class="wrap"><div class="panel narrow">
+        <h1 style="margin-bottom: 4px;">Your Business File</h1>
+        <p class="kicker" style="margin-bottom: 16px;">Safety training records for your crew</p>
         <form id="authForm" class="stack">
           <h2>${titles[m]}</h2>
           ${authMsgHtml()}
@@ -201,12 +230,12 @@
           <button type="submit" class="btn btn-primary">${submit}</button>
           ${links}
         </form>
-      </div>`;
+      </div></div>`;
   }
 
   function viewSetup() {
-    return `
-      <div class="panel narrow">
+    return appbar(true) + `
+      <div class="wrap"><div class="panel narrow">
         <h2>Set up your business</h2>
         <p class="kicker" style="margin-bottom: 16px;">One business per login. You can add employees next.</p>
         <form id="setupForm" class="stack">
@@ -216,78 +245,106 @@
           </label>
           <button type="submit" class="btn btn-primary">Continue</button>
         </form>
-        <p style="margin-top: 16px;"><button class="btn-link" data-action="sign-out">Sign out</button></p>
-      </div>`;
+      </div></div>`;
   }
 
   // ==========================================================================
   // VIEWS: signed in
   // ==========================================================================
+  // Every active employee x course pair that isn't current, worst first
+  function gaps() {
+    const out = [];
+    const counts = { valid: 0, soon: 0, expired: 0, none: 0 };
+    S.courses.forEach(c => activeEmployees().forEach(e => {
+      const st = standing(e.id, c);
+      counts[st.key]++;
+      if (st.key !== "valid") out.push({ e, c, st });
+    }));
+    const order = { expired: 0, none: 1, soon: 2 };
+    out.sort((x, y) => order[x.st.key] - order[y.st.key] || (x.st.due || "").localeCompare(y.st.due || "") || x.e.full_name.localeCompare(y.e.full_name));
+    return { list: out, counts };
+  }
+
+  function gapDetail(st) {
+    const t = today();
+    if (st.key === "none") return "No knowledge check on file yet";
+    const n = Math.abs(daysBetween(t, st.due));
+    if (st.key === "expired") return `Expired ${fmtDate(st.due)} · ${n} day${n === 1 ? "" : "s"} past due`;
+    return `Due ${fmtDate(st.due)} · ${n} day${n === 1 ? "" : "s"} left`;
+  }
+
   function viewHome() {
     const emps = activeEmployees();
+    const welcome = `
+      <h1>${esc(S.business.name)}</h1>
+      <p class="kicker">Business File · ${esc(S.session.user.email || "")}</p>`;
+
     if (!emps.length) {
-      return `
+      return welcome + `
+        <p class="lede">Add your crew to start tracking their safety training.</p>
         <div class="panel">
           <h2>Get started</h2>
           <p class="kicker">Add your employees first. Then record their knowledge checks and training files.</p>
-          <p style="margin-top: 12px;"><button class="btn btn-primary" data-tab="employees">Add employees</button></p>
+          <p style="margin-top: 14px;"><button class="btn btn-primary" data-tab="employees">Add employees</button></p>
         </div>`;
     }
 
-    const cards = S.courses.map(c => {
-      const counts = { valid: 0, soon: 0, expired: 0, none: 0 };
-      emps.forEach(e => { counts[standing(e.id, c).key]++; });
+    const { list, counts } = gaps();
+    const need = counts.expired + counts.none;
+    const total = list.length;
+    const tile = (color, icon, n, label) => `
+      <div class="tile">
+        <span class="dot-ico ${color}">${icon}</span>
+        <strong>${n}</strong>
+        <span class="label">${label}</span>
+      </div>`;
+    const color = { expired: "c-red", none: "c-red", soon: "c-orange" };
+
+    const items = list.map(({ e, c, st }, i) => `
+      <li class="item">
+        <span class="sq-ico ${color[st.key]}">${COURSE_ICON[c.id] || ICON.doc}</span>
+        <div class="item-body">
+          <div class="item-title">${esc(e.full_name)} · ${esc(c.title)}</div>
+          ${pill(st.key)}
+          <div class="item-sub">${esc(gapDetail(st))}</div>
+          <button class="btn ${i === 0 ? "btn-primary" : ""}" data-action="launch-quiz" data-course="${esc(c.id)}" data-employee="${esc(e.id)}">${i === 0 ? "Do this first" : "Take check"}</button>
+        </div>
+      </li>`).join("");
+
+    const courses = S.courses.map(c => {
+      const current = emps.filter(e => standing(e.id, c).key === "valid").length;
       return `
-        <div class="stat">
-          <div class="kicker">${esc(c.title)}</div>
-          <strong>${counts.valid} / ${emps.length}</strong>
-          <div class="fine">current · ${counts.soon} due soon · ${counts.expired} overdue · ${counts.none} no record</div>
+        <div class="course-row">
+          <div class="doc-head">
+            <strong>${esc(c.title)}</strong>
+            <span class="course-count kicker">${current} of ${emps.length} current</span>
+          </div>
+          <div class="progress" role="img" aria-label="${current} of ${emps.length} current"><span style="width: ${Math.round(100 * current / emps.length)}%"></span></div>
         </div>`;
     }).join("");
 
-    const attention = [];
-    S.courses.forEach(c => emps.forEach(e => {
-      const st = standing(e.id, c);
-      if (st.key !== "valid") attention.push({ e, c, st });
-    }));
-    const order = { expired: 0, none: 1, soon: 2 };
-    attention.sort((a, b) => order[a.st.key] - order[b.st.key] || a.e.full_name.localeCompare(b.e.full_name));
-
-    return `
-      <div class="panel">
-        <div class="doc-head">
-          <div>
-            <h2>Dashboard</h2>
-            <p class="kicker">${emps.length} active employee${emps.length === 1 ? "" : "s"}</p>
-          </div>
-          <button class="btn" data-action="export-csv">Download records (CSV)</button>
-        </div>
-        <div class="grid">${cards}</div>
+    return welcome + `
+      <p class="lede">${total ? `${total} item${total === 1 ? "" : "s"} need${total === 1 ? "s" : ""} you. Everything else is current.` : "Everyone is current. Nice work."}</p>
+      <div class="tiles">
+        ${tile("c-red", ICON.alert, need, "Action needed")}
+        ${tile("c-orange", ICON.clock, counts.soon, "Renew soon")}
+        ${tile("c-blue", ICON.people, emps.length, "Employees")}
+        ${tile("c-green", ICON.check, counts.valid, "Current")}
       </div>
-      <div class="panel">
-        <h2>Needs attention</h2>
-        ${attention.length ? `
-          <div class="table-wrap"><table>
-            <thead><tr><th>Employee</th><th>Training</th><th>Status</th><th>Due</th><th></th></tr></thead>
-            <tbody>${attention.map(({ e, c, st }) => `
-              <tr>
-                <td data-label="Employee">${esc(e.full_name)}</td>
-                <td data-label="Training">${esc(c.title)}</td>
-                <td data-label="Status">${pill(st.key)}</td>
-                <td data-label="Due">${esc(st.due || "—")}</td>
-                <td><button class="btn btn-small" data-action="launch-quiz" data-course="${esc(c.id)}" data-employee="${esc(e.id)}">Take check</button></td>
-              </tr>`).join("")}
-            </tbody>
-          </table></div>` : `<p class="kicker">Everyone is current.</p>`}
-      </div>`;
+      ${total ? `<p class="section-label">What needs you</p><ul class="items needs">${items}</ul>` : ""}
+      <p class="section-label">By training</p>
+      <div class="panel">${courses}</div>
+      <button class="btn btn-block" data-action="export-csv">Download records (CSV)</button>`;
   }
 
   function viewEmployees() {
     const list = S.employees.filter(e => S.showArchived || e.active);
     const archivedCount = S.employees.length - activeEmployees().length;
     return `
+      <h1>Your crew</h1>
+      <p class="lede">Add everyone who needs safety training.</p>
       <div class="panel">
-        <h2>Employees</h2>
+        <h2>Add an employee</h2>
         <form id="employeeForm" class="row" style="margin-top: 12px; align-items: flex-end;">
           <label class="field" style="flex: 2 1 200px;">Full name
             <input type="text" name="full_name" required maxlength="80" autocomplete="off" value="${esc(S.draft.full_name)}">
@@ -298,7 +355,10 @@
           <button type="submit" class="btn btn-primary">Add</button>
         </form>
         ${S.pageMsg ? `<div class="msg msg-err" role="alert" style="margin-top: 12px;">${esc(S.pageMsg)}</div>` : ""}
-        <p class="fine" style="margin-top: 8px;">Employees are archived, not deleted, so their training history stays on file.</p>
+      </div>
+      <div class="panel">
+        <h2>Crew list</h2>
+        <p class="fine">Employees are archived, not deleted, so their training history stays on file.</p>
         ${list.length ? `
           <div class="table-wrap"><table>
             <thead><tr><th>Name</th><th>Job title</th><th>Status</th><th></th></tr></thead>
@@ -320,8 +380,9 @@
     const cards = S.courses.map(c => {
       const src = safeUrl(c.source_url);
       return `
-        <div class="doc">
-          <div class="doc-head">
+        <div class="panel doc-card">
+          <div class="doc-head" style="flex-wrap: nowrap; justify-content: flex-start;">
+            <span class="sq-ico c-navy">${COURSE_ICON[c.id] || ICON.doc}</span>
             <div>
               <h3>${esc(c.title)}</h3>
               <div class="kicker">${esc(c.required_for)}${src ? ` · <a href="${esc(src)}" target="_blank" rel="noopener">${esc(c.source_label)}</a>` : ""} · renew every ${esc(c.renew_months)} months</div>
@@ -348,19 +409,18 @@
     }).join("");
 
     return `
-      <div class="panel">
-        <h2>Safety Training</h2>
-        <p class="kicker">Hand the device to the employee for their knowledge check. Keep a signed training record for each session as well.</p>
-        ${cards}
-      </div>`;
+      <h1>Safety training</h1>
+      <p class="lede">Hand the phone to the employee for their knowledge check. Keep a signed training record for each session as well.</p>
+      ${cards}`;
   }
 
   function viewFiles() {
     const emps = activeEmployees();
     return `
+      <h1>Training files</h1>
+      <p class="lede">Signed rosters and completion certificates. PDF, PNG or JPG, up to 10 MB. Only you can open them.</p>
       <div class="panel">
-        <h2>Training files</h2>
-        <p class="kicker">Signed rosters and completion certificates. PDF, PNG or JPG, up to 10 MB. Only you can open them.</p>
+        <h2>Upload a file</h2>
         <form id="uploadForm" class="stack" style="margin-top: 12px;">
           ${S.pageMsg ? `<div class="msg msg-err" role="alert">${esc(S.pageMsg)}</div>` : ""}
           <div class="row">
@@ -437,35 +497,33 @@
 
     if (!sb) { app.innerHTML = viewNotConfigured(); return; }
     if (S.authMode === "recovery" || !S.session) { app.innerHTML = viewAuth(); return; }
-    if (S.loading) { app.innerHTML = `<p class="kicker">Loading…</p>`; return; }
+    document.body.classList.toggle("signed-out", !S.session || S.authMode === "recovery" || !S.business);
+    if (S.loading) { app.innerHTML = appbar(false) + `<div class="wrap"><p class="kicker">Loading…</p></div>`; return; }
     if (S.loadError) {
-      app.innerHTML = `
-        <div class="panel narrow">
+      app.innerHTML = appbar(true) + `
+        <div class="wrap"><div class="panel narrow">
           <div class="msg msg-err" role="alert">${esc(S.loadError)}</div>
           <p class="row" style="margin-top: 12px;">
-            <button class="btn" data-action="reload">Try again</button>
-            <button class="btn-link" data-action="sign-out">Sign out</button>
+            <button class="btn btn-primary" data-action="reload">Try again</button>
           </p>
-        </div>`;
+        </div></div>`;
       return;
     }
     if (!S.business) { app.innerHTML = viewSetup(); return; }
 
     const views = { home: viewHome, employees: viewEmployees, training: viewTraining, files: viewFiles };
-    const tabs = [["home", "Dashboard"], ["employees", "Employees"], ["training", "Safety & Training"], ["files", "Files"]];
+    const need = gaps().list.length;
+    const tabs = [["home", "Home", ICON.home, 0], ["employees", "Crew", ICON.people, 0], ["training", "Training", ICON.badge, need], ["files", "Files", ICON.folder, 0]];
 
-    app.innerHTML = `
-      <header>
-        <div>
-          <h1>${esc(S.business.name)}</h1>
-          <div class="kicker">Compliance Hub · ${esc(S.session.user.email || "")}</div>
-        </div>
-        <button class="btn" data-action="sign-out">Sign out</button>
-      </header>
-      <nav aria-label="Sections">
-        ${tabs.map(([id, label]) => `<button class="tab-btn ${S.tab === id ? "active" : ""}" data-tab="${id}">${label}</button>`).join("")}
-      </nav>
-      <main>${(views[S.tab] || viewHome)()}</main>
+    app.innerHTML = appbar(true) + `
+      <main class="wrap">${(views[S.tab] || viewHome)()}</main>
+      <nav class="tabbar" aria-label="Sections"><div class="tabbar-in">
+        ${tabs.map(([id, label, icon, n]) => `
+          <button class="tab ${S.tab === id ? "active" : ""}" data-tab="${id}" ${S.tab === id ? 'aria-current="page"' : ""}>
+            ${icon}<span>${label}</span>
+            ${n ? `<span class="badge" aria-label="${n} need attention">${n > 99 ? "99+" : n}</span>` : ""}
+          </button>`).join("")}
+      </div></nav>
       ${S.sheet ? `
         <div class="modal-overlay" data-action="overlay">
           <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">

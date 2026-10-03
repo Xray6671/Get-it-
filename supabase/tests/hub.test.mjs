@@ -87,7 +87,7 @@ try {
   await page.fill("input[name=name]", "Desert Sun <b>Ops</b>");
   await page.click("#setupForm button[type=submit]");
   await page.waitForSelector("text=Get started");
-  ok((await text("h1")) === "Desert Sun <b>Ops</b>", "business name shown as plain text");
+  ok((await text("main h1")) === "Desert Sun <b>Ops</b>", "business name shown as plain text");
 
   // ---- employees ----
   await page.click("[data-tab=employees]");
@@ -112,7 +112,7 @@ try {
   // ---- training ----
   await page.click("[data-tab=training]");
   ok(!(await page.$("a[href^='javascript']")), "javascript: source link dropped");
-  const heatRow = "div.doc:has-text('Heat Illness') tr:has-text('Ana Lopez')";
+  const heatRow = "div.doc-card:has-text('Heat Illness') tr:has-text('Ana Lopez')";
   ok((await text(heatRow)).includes("No record"), "Ana starts with no record");
 
   await page.click(`${heatRow} [data-action=launch-quiz]`);
@@ -134,15 +134,18 @@ try {
   await page.click("[data-action=close-sheet]");
   ok((await text(heatRow)).includes("Current"), "Ana now current for heat");
 
-  const hazRow = "div.doc:has-text('Hazard Communication') tr:has-text('Ana Lopez')";
+  const hazRow = "div.doc-card:has-text('Hazard Communication') tr:has-text('Ana Lopez')";
   await page.click(`${hazRow} [data-action=launch-quiz]`);
   ok((await page.$$("#quizForm fieldset")).length === 2, "hazcom check shows its own 2 questions");
   await page.click("[data-action=close-sheet]");
 
   // ---- dashboard ----
   await page.click("[data-tab=home]");
-  ok((await text(".stat:has-text('Heat Illness') strong")).trim() === "1 / 3", "dashboard counts heat 1 of 3");
-  ok((await page.$$("text=Needs attention >> xpath=.. >> tbody tr")).length === 5, "five gaps listed");
+  ok((await text(".course-row:has-text('Heat Illness') .course-count")).trim() === "1 of 3 current", "dashboard counts heat 1 of 3");
+  ok((await page.$$(".needs .item")).length === 5, "five gaps listed");
+  ok((await text(".tile:has-text('Action needed') strong")) === "5" && (await text(".tile:has-text('Current') strong")) === "1", "status tiles count gaps and current");
+  ok((await text(".tab[data-tab=training] .badge")) === "5", "training tab shows gap badge");
+  ok((await text(".needs .item:first-child .btn-primary")).includes("Do this first"), "first gap gets the primary button");
 
   const [csvDl] = await Promise.all([page.waitForEvent("download"), page.click("[data-action=export-csv]")]);
   const csv = readFileSync(await csvDl.path(), "utf8");
