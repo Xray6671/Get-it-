@@ -23,8 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Publish only the website. The database schema (which holds the quiz
+      # answer key), tests, README and workflow files stay out of the site.
+      - name: Collect site files
+        run: |
+          mkdir _site
+          git ls-files -z | grep -zv -e '^supabase/' -e '^\.github/' -e '^README\.md$' \
+            | xargs -0 cp --parents -t _site
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

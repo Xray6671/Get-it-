@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  access-rules:
+    name: Database access rules
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      # schema.sql runs twice to prove it is safe to re-run on a live project
+      - name: Run access-rule tests
+        run: |
+          createdb hubtest
+          psql -v ON_ERROR_STOP=1 -q -d hubtest \
+            -f supabase/tests/supabase_stub.sql \
+            -f supabase/schema.sql -f supabase/schema.sql \
+            -f supabase/tests/rls_test.sql
+
+  browser:
+    name: App and demo in Chromium
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      # The demo test opens a sample PDF with pdftotext
+      - name: Install pdftotext
+        run: sudo apt-get install -y poppler-utils
+      - name: App tests
+        run: node supabase/tests/hub.test.mjs
+      - name: Demo walkthrough
+        run: node supabase/tests/demo.test.mjs

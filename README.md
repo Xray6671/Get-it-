@@ -39,7 +39,11 @@ A login area for clients and the NBW team. Its code is `hub.html`, `hub.js`, `hu
 - **Ordering**: owners can order the Safety & Heat packages from `safety.html` at the client price (15% off, rounded to whole dollars). No payment is taken in the app: an order is a request that NBW staff confirm, reprice if needed (for example the founding rate) and invoice. Heat Plan orders from crews over 25 come in as quote requests. Prices live in `public.packages` at the bottom of `schema.sql`.
 - **NBW staff** see every client's file and new orders, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
 
-Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly.
+Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly. The database records which staff member last reviewed each document or handled each order, and when.
+
+Each knowledge check starts with key points for the employee to read, then asks them to confirm they read them and to type their name as a signature. The name is saved with the record and included in the CSV export.
+
+Each business can store up to 300 files. If an upload succeeds but its record fails, the file is left over; staff can list these with `select * from public.orphan_files();` in the SQL Editor and delete them in **Storage → client-files**.
 
 ### Demo (`business-file-demo.html`)
 The same app (`hub.js` and `hub.css`) running on example data from `demo-client.js` instead of Supabase. It opens as Marco from Desert Ridge Roofing. A bar at the top switches to the NBW staff view, so visitors can follow a document from upload to review. Nothing is sent anywhere: uploads stay in the browser tab, and reloading starts over. It works without any Supabase setup, and nothing links to it yet. Add it to the site menu and `sitemap.xml` when you want prospects to find it.
@@ -63,6 +67,8 @@ If you put the project on a custom domain, add that domain to `connect-src` in t
 Edit the questions and answers at the bottom of `supabase/schema.sql` and run the file again in the SQL Editor. Answers live in a `private` table that browsers can't read. If you remove a question, also delete its row from `public.course_questions`.
 
 ### Tests
+GitHub runs all three suites on every pull request and every push to `main` (`.github/workflows/tests.yml`). The site deploy (`.github/workflows/pages.yml`) leaves out `supabase/`, `.github/` and this README, so the schema and its quiz answers are never published on the website.
+
 - **Access rules**, on a local Postgres 16, using stand-ins for Supabase's `auth` and `storage`. Run them against an empty database:
   ```
   psql -d hubtest -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/tests/rls_test.sql

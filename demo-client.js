@@ -64,8 +64,8 @@
     ],
     training_files: [],
     courses: [
-      { id: "heat", title: "Heat Illness Prevention", required_for: "Employees in jobs covered by the heat rule", source_label: "Regulation R131-24", source_url: "https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf", renew_months: 12, jha_note: "A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks. Judge conditions as if workers had no water, rest or shade.", sort: 1 },
-      { id: "hazcom", title: "Hazard Communication", required_for: "Employees who work with hazardous chemicals", source_label: "29 CFR 1910.1200", source_url: "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1200", renew_months: 12, jha_note: null, sort: 2 }
+      { id: "heat", title: "Heat Illness Prevention", lesson: ["Drink water often, before you feel thirsty. Your employer must give you drinkable water.", "Take rest breaks in shade or a cool area, and take one right away if you feel signs of heat illness.", "Early signs: heavy sweating, cramps, headache, dizziness, nausea or weakness. Stop, cool down, drink water and tell your supervisor.", "Severe signs: confusion, slurred speech, fainting, collapse or a seizure. Call 911 right away and start cooling the person.", "New and returning workers need shorter first days to get used to the heat.", "Your workplace has a designated person who watches conditions and calls emergency services if someone gets sick. Know who it is.", "When most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks, the employer needs a written job hazard analysis, judged as if workers had no water, rest or shade."], lesson_url: "https://nevadabusinesswatch.com/lessons.html#s7l1", required_for: "Employees in jobs covered by the heat rule", source_label: "Regulation R131-24", source_url: "https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf", renew_months: 12, jha_note: "A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks. Judge conditions as if workers had no water, rest or shade.", sort: 1 },
+      { id: "hazcom", title: "Hazard Communication", lesson: ["You have a right to know about the hazardous chemicals you work with.", "Safety Data Sheets (SDS) explain each chemical's hazards and how to protect yourself. They must be available to you during every shift.", "Shipped chemical containers are labeled with the product identifier, a signal word, hazard statements and pictograms.", "Read the label before you use a chemical. Do not use anything from an unlabeled container: ask your supervisor.", "Wear the protective equipment the SDS calls for, and know where to find first aid steps for each chemical."], lesson_url: null, required_for: "Employees who work with hazardous chemicals", source_label: "29 CFR 1910.1200", source_url: "https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1200", renew_months: 12, jha_note: null, sort: 2 }
     ],
     course_questions: [
       { course_id: "heat", position: 1, prompt: "When does a job need heat provisions and a written job hazard analysis?", options: ["Only when it is over 105°F", "When most workers in the job are in the heat more than 30 minutes of any 60, not counting breaks", "Whenever any worker is outdoors for more than 10 minutes"] },
@@ -86,12 +86,12 @@
       { id: "other", title: "Other document", icon: "doc", sort: 99 }
     ],
     documents: [
-      { id: "d-nscb", business_id: ROOF, type_id: "nscb_license", label: "C-15", status: "current", expires_on: day(-6), note: null, created_at: stamp(-80) },
+      { id: "d-nscb", business_id: ROOF, type_id: "nscb_license", label: "C-15", status: "current", expires_on: day(-6), note: null, reviewed_at: stamp(-79), created_at: stamp(-80) },
       { id: "d-heat", business_id: ROOF, type_id: "heat_plan", label: null, status: "requested", expires_on: null, note: "We don't have a copy yet. Requested by NBW.", created_at: stamp(-20) },
-      { id: "d-gl", business_id: ROOF, type_id: "general_liability", label: null, status: "current", expires_on: day(19), note: null, created_at: stamp(-80) },
-      { id: "d-wc", business_id: ROOF, type_id: "workers_comp", label: null, status: "current", expires_on: day(46), note: null, created_at: stamp(-80) },
+      { id: "d-gl", business_id: ROOF, type_id: "general_liability", label: null, status: "current", expires_on: day(19), note: null, reviewed_at: stamp(-79), created_at: stamp(-80) },
+      { id: "d-wc", business_id: ROOF, type_id: "workers_comp", label: null, status: "current", expires_on: day(46), note: null, reviewed_at: stamp(-79), created_at: stamp(-80) },
       { id: "d-nlv", business_id: ROOF, type_id: "local_license", label: "North Las Vegas", status: "under_review", expires_on: day(270), note: null, created_at: stamp(-1) },
-      { id: "d-state", business_id: ROOF, type_id: "state_license", label: null, status: "current", expires_on: day(210), note: null, created_at: stamp(-80) },
+      { id: "d-state", business_id: ROOF, type_id: "state_license", label: null, status: "current", expires_on: day(210), note: null, reviewed_at: stamp(-79), created_at: stamp(-80) },
       { id: "d-pool-gl", business_id: POOL, type_id: "general_liability", label: null, status: "under_review", expires_on: day(330), note: null, created_at: stamp(-2) }
     ],
     document_files: [
@@ -153,6 +153,9 @@
       } else if (q.op === "update") {
         out = rows.filter(match);
         out.forEach(r => Object.assign(r, q.values));
+        // Mirror the database's review stamps
+        if (isStaff() && table === "documents") out.forEach(r => { r.reviewed_by = session.user.id; r.reviewed_at = new Date().toISOString(); });
+        if (isStaff() && table === "orders") out.forEach(r => { r.handled_by = session.user.id; r.handled_at = new Date().toISOString(); });
       } else if (q.op === "delete") {
         out = rows.filter(match);
         db[table] = db[table].filter(r => !out.includes(r));
@@ -187,10 +190,11 @@
     async rpc(name, args) {
       if (name === "is_staff") return { data: isStaff(), error: null };
       if (name === "submit_check") {
+        if (!(args.p_signed_name || "").trim()) return { data: null, error: { message: "The employee must type their name to sign" } };
         const key = ANSWERS[args.p_course_id];
         const wrong = key.filter((a, i) => args.p_answers[i] !== a).length;
         if (wrong) return { data: { passed: false, wrong }, error: null };
-        db.attestations.push({ id: uuid(), employee_id: args.p_employee_id, course_id: args.p_course_id, completed_on: TODAY });
+        db.attestations.push({ id: uuid(), employee_id: args.p_employee_id, course_id: args.p_course_id, completed_on: TODAY, signed_name: args.p_signed_name.trim() });
         const due = new Date(TODAY + "T12:00:00Z");
         due.setUTCFullYear(due.getUTCFullYear() + 1);
         return { data: { passed: true, wrong: 0, completed_on: TODAY, due_on: due.toISOString().slice(0, 10) }, error: null };
@@ -219,6 +223,8 @@
         let doc = args.p_document_id && db.documents.find(d => d.id === args.p_document_id && d.business_id === biz.id);
         if (doc) {
           doc.status = "under_review";
+          doc.reviewed_by = null;
+          doc.reviewed_at = null;
           if (args.p_expires_on) doc.expires_on = args.p_expires_on;
         } else {
           doc = { id: uuid(), business_id: biz.id, type_id: args.p_type_id, label: (args.p_label || "").trim() || null, status: "under_review", expires_on: args.p_expires_on, note: null, created_at: new Date().toISOString() };

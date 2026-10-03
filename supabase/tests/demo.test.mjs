@@ -45,6 +45,7 @@ try {
   ok((await text(".needs")).includes("19 days left") && (await text(".needs")).includes("Written heat illness prevention plan"), "renewals and requested plan listed");
   ok((await text(".updates")).includes("North Las Vegas license"), "latest team update shown");
   ok((await text(".tile:has-text('Under review') strong")) === "1", "one document under review");
+  ok((await text(".docs, main")).includes("Checked by NBW on"), "reviewed documents show when NBW checked them");
   await page.screenshot({ path: join(tmp, "1-home.png") });
 
   // open a sample file
@@ -93,6 +94,8 @@ try {
   ok((await text("div.doc-card:has-text('Heat Illness') tr:has-text('Luis Ortega')")).includes("Due soon"), "Luis's heat training due soon");
   await page.click(`${samRow} [data-action=launch-quiz]`);
   for (const [p, v] of [[1, 1], [2, 0], [3, 1], [4, 1]]) await page.check(`input[name=q${p}][value="${v}"]`);
+  await page.check("#quizForm input[name=reviewed]");
+  await page.fill("#quizForm input[name=signed_name]", "Sam Patel");
   await page.click("#quizForm button[type=submit]");
   await page.waitForSelector(".modal .msg-ok");
   await page.click("[data-action=close-sheet]");

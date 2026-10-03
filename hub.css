@@ -166,3 +166,11 @@ body.signed-out footer { padding-bottom: 32px; }
 .summary-list div { display: flex; justify-content: space-between; gap: 12px; }
 .summary-list dt { color: var(--muted); }
 .summary-list dd { font-variant-numeric: tabular-nums; }
+
+/* Knowledge check: material and signature */
+.lesson { background: var(--paper); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.lesson h4 { font-size: 1rem; }
+.lesson ul { margin-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+label.check { display: flex; gap: 10px; align-items: center; font-weight: 600; }
+label.check input { width: 20px; height: 20px; accent-color: var(--navy); }
+.msg:focus { outline: 2px solid currentColor; outline-offset: 2px; }

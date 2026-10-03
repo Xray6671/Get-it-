@@ -33,22 +33,29 @@ end $$;
 
 -- wrong answers record nothing
 select pg_temp.expect(
-  (public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[0,0,0,0]) ->> 'wrong')::int = 3,
+  (public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[0,0,0,0], 'Ana Signed') ->> 'wrong')::int = 3,
   'wrong answers counted on server');
 select pg_temp.expect((select count(*) from public.attestations) = 0, 'failed check records nothing');
 
 do $$ begin
-  perform public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[1,0]);
+  perform public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[1,0], 'Ana Signed');
   raise exception 'FAILED: short answer list accepted';
 exception when invalid_parameter_value then raise notice 'ok: short answer list rejected';
 end $$;
 
+do $$ begin
+  perform public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[1,0,1,1], '   ');
+  raise exception 'FAILED: unsigned check accepted';
+exception when invalid_parameter_value then raise notice 'ok: checks must be signed';
+end $$;
+
 -- right answers record one attestation, dated with a due date 12 months out
 select pg_temp.expect(
-  (public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[1,0,1,1]) ->> 'passed')::boolean,
+  (public.submit_check((select id from public.employees where full_name = 'Ana'), 'heat', array[1,0,1,1], 'Ana Signed') ->> 'passed')::boolean,
   'correct answers pass');
 select pg_temp.expect((select count(*) from public.attestations) = 1, 'pass records one attestation');
 select pg_temp.expect((select completed_on from public.attestations) = public.nv_today(), 'dated with Nevada date');
+select pg_temp.expect((select signed_name from public.attestations) = 'Ana Signed', 'signature stored with the record');
 
 do $$ begin
   insert into public.attestations (employee_id, course_id, completed_on, recorded_by)
@@ -117,7 +124,7 @@ end $$;
 set role authenticated;
 
 do $$ begin
-  perform public.submit_check(current_setting('ana.id')::uuid, 'heat', array[1,0,1,1]);
+  perform public.submit_check(current_setting('ana.id')::uuid, 'heat', array[1,0,1,1], 'Ana Signed');
   raise exception 'FAILED: B recorded a check for A employee';
 exception when insufficient_privilege then raise notice 'ok: B cannot record checks for A employees';
 end $$;
@@ -218,6 +225,9 @@ select pg_temp.expect((select count(*) from storage.objects where name like '%/d
 
 update public.documents set status = 'current', expires_on = '2027-09-27', note = null where id = current_setting('a.doc')::uuid;
 select pg_temp.expect((select status from public.documents where id = current_setting('a.doc')::uuid) = 'current', 'staff marks document current');
+select pg_temp.expect((select reviewed_by from public.documents where id = current_setting('a.doc')::uuid) = '00000000-0000-0000-0000-00000000000c'
+  and (select reviewed_at from public.documents where id = current_setting('a.doc')::uuid) is not null, 'review stamped with staff and time');
+select pg_temp.expect((select count(*) from public.orphan_files()) = 0, 'no orphaned files yet');
 
 insert into public.documents (business_id, type_id, status, note)
 select id, 'heat_plan', 'requested', 'Requested by NBW.' from public.businesses where name = 'B Landscaping';
@@ -240,6 +250,12 @@ end $$;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
 select pg_temp.expect((select count(*) from public.updates) = 1, 'A sees its update');
 select pg_temp.expect((select status from public.documents) = 'current', 'A sees reviewed document');
+select pg_temp.expect((select count(*) from public.orphan_files()) = 0, 'owners cannot list files');
+insert into storage.objects (bucket_id, name) values ('client-files', public.my_business_id() || '/docs/u9/renewal.pdf');
+select public.submit_document(current_setting('a.doc')::uuid, null, null, '2028-09-27', public.my_business_id() || '/docs/u9/renewal.pdf', 'renewal.pdf', 3000);
+select pg_temp.expect((select reviewed_by from public.documents where id = current_setting('a.doc')::uuid) is null, 'new upload clears the old review stamp');
+-- an upload whose record never got created
+insert into storage.objects (bucket_id, name) values ('client-files', public.my_business_id() || '/docs/u10/stray.pdf');
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
 select pg_temp.expect((select count(*) from public.updates) = 0, 'B cannot see A updates');
 select pg_temp.expect((select count(*) from public.documents where status = 'requested') = 1, 'B sees request from NBW');
@@ -295,6 +311,8 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c
 select pg_temp.expect((select count(*) from public.orders) = 3, 'staff see every order');
 update public.orders set status = 'confirmed', price_cents = 95000, deposit_cents = 47500, staff_note = 'Founding rate'
  where id = current_setting('a.order')::uuid;
+select pg_temp.expect((select handled_by from public.orders where id = current_setting('a.order')::uuid) = '00000000-0000-0000-0000-00000000000c', 'order stamped with the staff member');
+select pg_temp.expect((select count(*) from public.orphan_files() where name like '%/stray.pdf') = 1, 'staff can list orphaned files');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
 select pg_temp.expect((select status from public.orders where id = current_setting('a.order')::uuid) = 'confirmed', 'owner sees the confirmation');
@@ -306,6 +324,19 @@ end $$;
 select public.cancel_order(id) from public.orders where package_id = 'diy_kit';
 select pg_temp.expect((select status from public.orders where package_id = 'diy_kit') = 'cancelled', 'owner can cancel an unconfirmed order');
 
+-- ---------- upload cap ----------
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select pg_temp.expect(public.can_upload(), 'uploads allowed under the cap');
+reset role;
+insert into storage.objects (bucket_id, name)
+select 'client-files', b.id || '/training/bulk/' || g || '.pdf' from public.businesses b, generate_series(1, 300) g where b.name = 'B Landscaping';
+set role authenticated;
+do $$ begin
+  insert into storage.objects (bucket_id, name) values ('client-files', public.my_business_id() || '/training/bulk/one-more.pdf');
+  raise exception 'FAILED: upload over the cap allowed';
+exception when insufficient_privilege then raise notice 'ok: uploads stop at the cap';
+end $$;
+
 -- ---------- logged-out visitor ----------
 set role anon;
 select set_config('request.jwt.claim.sub', '', false);
@@ -315,7 +346,7 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'ok: anon cannot read employees';
 end $$;
 do $$ begin
-  perform public.submit_check(gen_random_uuid(), 'heat', array[1,0,1,1]);
+  perform public.submit_check(gen_random_uuid(), 'heat', array[1,0,1,1], 'Ana Signed');
   raise exception 'FAILED: anon ran submit_check';
 exception when insufficient_privilege then raise notice 'ok: anon cannot run submit_check';
 end $$;

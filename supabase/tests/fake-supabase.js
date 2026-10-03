@@ -27,8 +27,8 @@ window.supabase.createClient = function () {
       { id: "other", title: "Other document", icon: "doc", sort: 99 }
     ],
     courses: [
-      { id: "heat", title: "Heat Illness Prevention", required_for: "Employees in jobs covered by the heat rule", source_label: "Regulation R131-24", source_url: "https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf", renew_months: 12, jha_note: "A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks.", sort: 1 },
-      { id: "hazcom", title: "Hazard Communication", required_for: "Employees who work with hazardous chemicals", source_label: "29 CFR 1910.1200", source_url: "javascript:alert(1)", renew_months: 12, jha_note: null, sort: 2 }
+      { id: "heat", title: "Heat Illness Prevention", lesson: ["Drink water often, before you feel thirsty. Your employer must give you drinkable water.", "Take rest breaks in shade or a cool area, and take one right away if you feel signs of heat illness.", "Early signs: heavy sweating, cramps, headache, dizziness, nausea or weakness. Stop, cool down, drink water and tell your supervisor.", "Severe signs: confusion, slurred speech, fainting, collapse or a seizure. Call 911 right away and start cooling the person.", "New and returning workers need shorter first days to get used to the heat.", "Your workplace has a designated person who watches conditions and calls emergency services if someone gets sick. Know who it is.", "When most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks, the employer needs a written job hazard analysis, judged as if workers had no water, rest or shade."], lesson_url: "https://nevadabusinesswatch.com/lessons.html#s7l1", required_for: "Employees in jobs covered by the heat rule", source_label: "Regulation R131-24", source_url: "https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf", renew_months: 12, jha_note: "A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks.", sort: 1 },
+      { id: "hazcom", title: "Hazard Communication", lesson: ["You have a right to know about the hazardous chemicals you work with.", "Safety Data Sheets (SDS) explain each chemical's hazards and how to protect yourself. They must be available to you during every shift.", "Shipped chemical containers are labeled with the product identifier, a signal word, hazard statements and pictograms.", "Read the label before you use a chemical. Do not use anything from an unlabeled container: ask your supervisor.", "Wear the protective equipment the SDS calls for, and know where to find first aid steps for each chemical."], lesson_url: null, required_for: "Employees who work with hazardous chemicals", source_label: "29 CFR 1910.1200", source_url: "javascript:alert(1)", renew_months: 12, jha_note: null, sort: 2 }
     ],
     course_questions: [
       { course_id: "heat", position: 1, prompt: "Q1 heat", options: ["a", "b", "c"] },
@@ -68,6 +68,9 @@ window.supabase.createClient = function () {
       } else if (q.op === "update") {
         out = rows.filter(match);
         out.forEach(r => Object.assign(r, q.values));
+        // Mirror the database's review stamps
+        if (isStaff() && table === "documents") out.forEach(r => { r.reviewed_by = session.user.id; r.reviewed_at = new Date().toISOString(); });
+        if (isStaff() && table === "orders") out.forEach(r => { r.handled_by = session.user.id; r.handled_at = new Date().toISOString(); });
       } else if (q.op === "delete") {
         out = rows.filter(match);
         db[table] = rows.filter(r => !match(r));
@@ -129,6 +132,8 @@ window.supabase.createClient = function () {
         if (args.p_document_id && !doc) return { data: null, error: { message: "Document not found" } };
         if (doc) {
           doc.status = "under_review";
+          doc.reviewed_by = null;
+          doc.reviewed_at = null;
           if (args.p_expires_on) doc.expires_on = args.p_expires_on;
         } else {
           doc = { id: uuid(), business_id: biz.id, type_id: args.p_type_id, label: (args.p_label || "").trim() || null, status: "under_review", expires_on: args.p_expires_on, note: null, created_at: new Date().toISOString() };
@@ -137,11 +142,12 @@ window.supabase.createClient = function () {
         db.document_files.push({ id: uuid(), document_id: doc.id, business_id: biz.id, storage_path: args.p_storage_path, file_name: args.p_file_name, size_bytes: args.p_size_bytes, created_at: new Date().toISOString() });
         return { data: doc.id, error: null };
       }
+      if (name === "submit_check" && !(args.p_signed_name || "").trim()) return { data: null, error: { message: "The employee must type their name to sign" } };
       const key = KEY[args.p_course_id];
       const wrong = key.filter((a, i) => args.p_answers[i] !== a).length;
       if (wrong) return { data: { passed: false, wrong }, error: null };
       const d = today();
-      db.attestations.push({ id: uuid(), employee_id: args.p_employee_id, course_id: args.p_course_id, completed_on: d });
+      db.attestations.push({ id: uuid(), employee_id: args.p_employee_id, course_id: args.p_course_id, completed_on: d, signed_name: args.p_signed_name.trim() });
       const [y, m, day] = d.split("-").map(Number);
       return { data: { passed: true, wrong: 0, completed_on: d, due_on: `${y + 1}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}` }, error: null };
     },

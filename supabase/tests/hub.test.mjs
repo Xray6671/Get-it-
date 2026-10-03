@@ -126,12 +126,14 @@ try {
 
   await page.click("tr:has-text('Crew lead') [data-action=toggle-employee]");
   await page.waitForSelector("text=Show archived (1)");
+
   ok((await page.$$("tbody tr")).length === 2, "archived employee hidden");
   await page.click("[data-action=toggle-archived]");
   ok((await page.$$("tbody tr")).length === 3, "show archived lists all");
   await page.click("tr:has-text('Crew lead') [data-action=toggle-employee]");
   await page.waitForFunction(() => !document.body.textContent.includes("Archived ("));
   ok(true, "employee restored");
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.dataset.action === "toggle-employee"), "focus stays on the button after the page redraws");
 
   // ---- training ----
   await page.click("[data-tab=training]");
@@ -142,16 +144,30 @@ try {
   await page.click(`${heatRow} [data-action=launch-quiz]`);
   await page.waitForSelector("#quizForm");
   ok((await page.$$("#quizForm fieldset")).length === 4, "heat check shows its 4 questions");
+  ok((await page.$$("#quizForm .lesson li")).length === 7 && !!(await page.$("#quizForm a[href*='lessons.html#s7l1']")), "check opens with the material to read");
+  ok(await page.evaluate(() => document.querySelector(".modal").contains(document.activeElement)), "focus moves into the check");
+  for (let i = 0; i < 25; i++) await page.keyboard.press("Tab");
+  ok(await page.evaluate(() => document.querySelector(".modal").contains(document.activeElement)), "Tab stays inside the check");
+  for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+Tab");
+  ok(await page.evaluate(() => document.querySelector(".modal").contains(document.activeElement)), "Shift+Tab stays inside the check");
   await page.keyboard.press("Escape");
   ok(!(await page.$(".modal")), "Escape closes the check");
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.dataset.action === "launch-quiz" && document.activeElement.closest("tr").textContent.includes("Ana Lopez")), "focus returns to the button that opened it");
 
   await page.click(`${heatRow} [data-action=launch-quiz]`);
   for (let p = 1; p <= 4; p++) await page.check(`input[name=q${p}][value="0"]`);
+  await page.check("#quizForm input[name=reviewed]");
+  await page.click("#quizForm button[type=submit]");
+  ok(!(await page.$("#quizForm .msg-err")) && (await page.evaluate(() => window.__fake.calls.filter(c => c === "rpc:submit_check").length)) === 0, "an unsigned check can't be submitted");
+  await page.fill("#quizForm input[name=signed_name]", "Ana Lopez");
   await page.click("#quizForm button[type=submit]");
   await page.waitForSelector("#quizForm .msg-err");
   ok((await text("#quizForm .msg-err")).includes("3 answers"), "wrong answers rejected with count");
+  ok((await page.inputValue("#quizForm input[name=signed_name]")) === "Ana Lopez", "signature kept after wrong answers");
+  ok(await page.evaluate(() => document.activeElement.classList.contains("msg-err")), "focus moves to the error so it's announced");
 
   for (const [p, v] of [[1, 1], [2, 0], [3, 1], [4, 1]]) await page.check(`input[name=q${p}][value="${v}"]`);
+  await page.check("#quizForm input[name=reviewed]");
   await page.click("#quizForm button[type=submit]");
   await page.waitForSelector(".modal .msg-ok");
   ok((await text(".modal .msg-ok")).includes("Ana Lopez passed"), "correct answers recorded");
@@ -167,6 +183,7 @@ try {
   const csv = readFileSync(await csvDl.path(), "utf8");
   ok(csv.includes(`"'=HYPERLINK(""http://evil"")"`), "CSV neutralizes formulas");
   ok(csv.split("\r\n").length === 7 && csv.includes('"Ana Lopez","Pool tech","Active","Heat Illness Prevention"'), "CSV has a row per employee and training");
+  ok(/"Heat Illness Prevention","\d{4}-\d{2}-\d{2}","Ana Lopez"/.test(csv), "CSV includes the signature");
 
   // ---- training files ----
   await page.selectOption("#uploadForm select[name=employee_id]", { label: "Ana Lopez" });
@@ -376,6 +393,7 @@ try {
     await page.waitForFunction(() => window.__fake.db.documents.find(d => d.id === "d1").status === "current");
     ok((await page.evaluate(() => window.__fake.db.documents.find(d => d.id === "d1").status)) === "current", "review saves status");
     ok((await text(".review-card:has-text('C-15')")).includes("Current"), "reviewed document shows current");
+    ok((await text(".review-card:has-text('C-15')")).includes("Last reviewed"), "review date shown to staff");
 
     const order = ".order[data-order=o1]";
     ok((await text(order)).includes("Before June please") && (await text(order)).includes("$1,020"), "staff see the order and client notes");
@@ -387,6 +405,7 @@ try {
     await page.waitForFunction(() => window.__fake.db.orders[0].status === "confirmed");
     const saved = await page.evaluate(() => window.__fake.db.orders[0]);
     ok(saved.price_cents === 95000 && saved.deposit_cents === 47500 && saved.staff_note === "Founding rate. Invoice sent.", "staff confirm and reprice an order");
+    ok(saved.handled_by === "user-team@nbw.test" && (await text(order)).includes("Last updated by staff"), "order records which staff member handled it");
 
     await page.selectOption("#requestForm select[name=type_id]", "workers_comp");
     await page.click("#requestForm button[type=submit]");

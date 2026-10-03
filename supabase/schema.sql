@@ -145,6 +145,18 @@ create table if not exists public.updates (
 );
 create index if not exists updates_business_idx on public.updates (business_id, created_at desc);
 
+-- Training material shown before each knowledge check, and the employee's
+-- typed signature on each record
+alter table public.courses add column if not exists lesson jsonb not null default '[]'::jsonb;
+alter table public.courses add column if not exists lesson_url text check (lesson_url is null or lesson_url like 'https://%');
+alter table public.attestations add column if not exists signed_name text
+  check (signed_name is null or char_length(btrim(signed_name)) between 1 and 80);
+
+-- Who at NBW last approved, rejected or changed a document or order, and when.
+-- Set by triggers, never by the browser.
+alter table public.documents add column if not exists reviewed_by uuid references auth.users (id);
+alter table public.documents add column if not exists reviewed_at timestamptz;
+
 -- Services clients can order from NBW. Prices are in cents; client_price_cents
 -- is what a Business File customer pays. max_employees: a bigger crew gets a
 -- quote instead of the listed price.
@@ -178,6 +190,8 @@ create table if not exists public.orders (
   updated_at     timestamptz not null default now()
 );
 create index if not exists orders_business_idx on public.orders (business_id, created_at desc);
+alter table public.orders add column if not exists handled_by uuid references auth.users (id);
+alter table public.orders add column if not exists handled_at timestamptz;
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -206,8 +220,10 @@ as $$
 $$;
 
 -- Grades a knowledge check on the server and records it only if every answer
--- is right. Returns how many were wrong, so the browser never sees the key.
-create or replace function public.submit_check(p_employee_id uuid, p_course_id text, p_answers int[])
+-- is right and the employee signed it by typing their name. Returns how many
+-- answers were wrong, so the browser never sees the key.
+drop function if exists public.submit_check(uuid, text, int[]);
+create or replace function public.submit_check(p_employee_id uuid, p_course_id text, p_answers int[], p_signed_name text)
 returns json
 language plpgsql
 security definer
@@ -219,6 +235,7 @@ declare
   v_wrong     int;
   v_months    int;
   v_today     date := public.nv_today();
+  v_signed    text := btrim(coalesce(p_signed_name, ''));
 begin
   if v_business is null then
     raise exception 'No business on this account' using errcode = '42501';
@@ -229,6 +246,10 @@ begin
     where id = p_employee_id and business_id = v_business and active
   ) then
     raise exception 'Employee not found' using errcode = '42501';
+  end if;
+
+  if char_length(v_signed) not between 1 and 80 then
+    raise exception 'The employee must type their name to sign' using errcode = '22023';
   end if;
 
   select renew_months into v_months from public.courses where id = p_course_id;
@@ -251,8 +272,8 @@ begin
     return json_build_object('passed', false, 'wrong', v_wrong);
   end if;
 
-  insert into public.attestations (employee_id, course_id, completed_on, recorded_by)
-  values (p_employee_id, p_course_id, v_today, auth.uid());
+  insert into public.attestations (employee_id, course_id, completed_on, recorded_by, signed_name)
+  values (p_employee_id, p_course_id, v_today, auth.uid(), v_signed);
 
   return json_build_object(
     'passed', true,
@@ -290,6 +311,80 @@ create trigger documents_touch before update on public.documents
 drop trigger if exists orders_touch on public.orders;
 create trigger orders_touch before update on public.orders
   for each row execute function public.touch_updated_at();
+
+-- Stamp staff changes with who and when. A change made by an owner (a new
+-- upload through submit_document) clears the stamp, since nobody has
+-- reviewed the new copy yet.
+create or replace function public.stamp_document_review()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.status is distinct from old.status or new.expires_on is distinct from old.expires_on
+     or new.note is distinct from old.note then
+    if public.is_staff() then
+      new.reviewed_by := auth.uid();
+      new.reviewed_at := now();
+    else
+      new.reviewed_by := null;
+      new.reviewed_at := null;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists documents_review_stamp on public.documents;
+create trigger documents_review_stamp before update on public.documents
+  for each row execute function public.stamp_document_review();
+
+create or replace function public.stamp_order_handling()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if public.is_staff() then
+    new.handled_by := auth.uid();
+    new.handled_at := now();
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists orders_handled_stamp on public.orders;
+create trigger orders_handled_stamp before update on public.orders
+  for each row execute function public.stamp_order_handling();
+
+-- Uploads per business are capped so one account can't fill the bucket.
+create or replace function public.can_upload()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.my_business_id() is not null
+     and (select count(*) from storage.objects
+          where bucket_id = 'client-files'
+            and name like public.my_business_id()::text || '/%') < 300
+$$;
+
+-- Staff: stored files that no document or training record points to (an
+-- upload whose record failed). Delete them from the Storage dashboard.
+create or replace function public.orphan_files()
+returns table (name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select o.name from storage.objects o
+  where public.is_staff()
+    and o.bucket_id = 'client-files'
+    and not exists (select 1 from public.document_files f where f.storage_path = o.name)
+    and not exists (select 1 from public.training_files t where t.storage_path = o.name)
+  order by o.name
+$$;
 
 -- An owner orders a package. The price comes from public.packages on the
 -- server, never from the browser. Done-for-you work is 50% to start.
@@ -399,6 +494,8 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- Row level security
+-- Function calls are wrapped in (select ...) so Postgres runs them once per
+-- query instead of once per row.
 -- ---------------------------------------------------------------------------
 
 alter table public.businesses       enable row level security;
@@ -421,8 +518,8 @@ revoke all on public.businesses, public.employees, public.courses, public.course
               public.documents, public.document_files, public.updates, public.packages, public.orders from anon;
 revoke all on schema private from anon, authenticated;
 revoke all on all tables in schema private from anon, authenticated;
-revoke all on function public.submit_check(uuid, text, int[]) from public, anon;
-grant execute on function public.submit_check(uuid, text, int[]) to authenticated;
+revoke all on function public.submit_check(uuid, text, int[], text) from public, anon;
+grant execute on function public.submit_check(uuid, text, int[], text) to authenticated;
 revoke all on function public.my_business_id() from public, anon;
 grant execute on function public.my_business_id() to authenticated;
 revoke all on function public.is_staff() from public, anon;
@@ -433,6 +530,10 @@ revoke all on function public.order_package(text, text) from public, anon;
 grant execute on function public.order_package(text, text) to authenticated;
 revoke all on function public.cancel_order(uuid) from public, anon;
 grant execute on function public.cancel_order(uuid) to authenticated;
+revoke all on function public.can_upload() from public, anon;
+grant execute on function public.can_upload() to authenticated;
+revoke all on function public.orphan_files() from public, anon;
+grant execute on function public.orphan_files() to authenticated;
 
 -- Only the operations each table needs; RLS narrows them further.
 revoke all on public.businesses, public.employees, public.courses, public.course_questions,
@@ -456,20 +557,20 @@ drop policy if exists "own business: read"   on public.businesses;
 drop policy if exists "own business: create" on public.businesses;
 drop policy if exists "own business: rename" on public.businesses;
 create policy "own business: read"   on public.businesses for select to authenticated
-  using (owner_id = auth.uid() or public.is_staff());
-create policy "own business: create" on public.businesses for insert to authenticated with check (owner_id = auth.uid());
+  using (owner_id = (select auth.uid()) or (select public.is_staff()));
+create policy "own business: create" on public.businesses for insert to authenticated with check (owner_id = (select auth.uid()));
 create policy "own business: rename" on public.businesses for update to authenticated
-  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+  using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
 
 drop policy if exists "own employees: read"   on public.employees;
 drop policy if exists "own employees: add"    on public.employees;
 drop policy if exists "own employees: edit"   on public.employees;
 create policy "own employees: read" on public.employees for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 create policy "own employees: add"  on public.employees for insert to authenticated
-  with check (business_id = public.my_business_id());
+  with check (business_id = (select public.my_business_id()));
 create policy "own employees: edit" on public.employees for update to authenticated
-  using (business_id = public.my_business_id()) with check (business_id = public.my_business_id());
+  using (business_id = (select public.my_business_id())) with check (business_id = (select public.my_business_id()));
 
 drop policy if exists "courses: read"   on public.courses;
 drop policy if exists "questions: read" on public.course_questions;
@@ -479,24 +580,24 @@ create policy "questions: read" on public.course_questions for select to authent
 -- No insert policy: records are only written by submit_check.
 drop policy if exists "own attestations: read" on public.attestations;
 create policy "own attestations: read" on public.attestations for select to authenticated
-  using (public.is_staff() or exists (select 1 from public.employees e
-                 where e.id = employee_id and e.business_id = public.my_business_id()));
+  using ((select public.is_staff()) or exists (select 1 from public.employees e
+                 where e.id = employee_id and e.business_id = (select public.my_business_id())));
 
 drop policy if exists "own files: read"   on public.training_files;
 drop policy if exists "own files: add"    on public.training_files;
 drop policy if exists "own files: remove" on public.training_files;
 create policy "own files: read" on public.training_files for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 create policy "own files: add" on public.training_files for insert to authenticated
   with check (
-    business_id = public.my_business_id()
-    and uploaded_by = auth.uid()
+    business_id = (select public.my_business_id())
+    and uploaded_by = (select auth.uid())
     and storage_path like business_id::text || '/training/%'
     and (employee_id is null or exists (select 1 from public.employees e
-                                        where e.id = employee_id and e.business_id = public.my_business_id()))
+                                        where e.id = employee_id and e.business_id = (select public.my_business_id())))
   );
 create policy "own files: remove" on public.training_files for delete to authenticated
-  using (business_id = public.my_business_id());
+  using (business_id = (select public.my_business_id()));
 
 drop policy if exists "document types: read" on public.document_types;
 create policy "document types: read" on public.document_types for select to authenticated using (true);
@@ -507,22 +608,22 @@ drop policy if exists "documents: read"           on public.documents;
 drop policy if exists "documents: staff request"  on public.documents;
 drop policy if exists "documents: staff review"   on public.documents;
 create policy "documents: read" on public.documents for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 create policy "documents: staff request" on public.documents for insert to authenticated
-  with check (public.is_staff());
+  with check ((select public.is_staff()));
 create policy "documents: staff review" on public.documents for update to authenticated
-  using (public.is_staff()) with check (public.is_staff());
+  using ((select public.is_staff())) with check ((select public.is_staff()));
 
 drop policy if exists "document files: read" on public.document_files;
 create policy "document files: read" on public.document_files for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 
 drop policy if exists "updates: read"       on public.updates;
 drop policy if exists "updates: staff post" on public.updates;
 create policy "updates: read" on public.updates for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 create policy "updates: staff post" on public.updates for insert to authenticated
-  with check (public.is_staff() and author_id = auth.uid());
+  with check ((select public.is_staff()) and author_id = (select auth.uid()));
 
 drop policy if exists "packages: read" on public.packages;
 create policy "packages: read" on public.packages for select to authenticated using (true);
@@ -532,9 +633,9 @@ create policy "packages: read" on public.packages for select to authenticated us
 drop policy if exists "orders: read"         on public.orders;
 drop policy if exists "orders: staff update" on public.orders;
 create policy "orders: read" on public.orders for select to authenticated
-  using (business_id = public.my_business_id() or public.is_staff());
+  using (business_id = (select public.my_business_id()) or (select public.is_staff()));
 create policy "orders: staff update" on public.orders for update to authenticated
-  using (public.is_staff()) with check (public.is_staff());
+  using ((select public.is_staff())) with check ((select public.is_staff()));
 
 -- ---------------------------------------------------------------------------
 -- File storage: private bucket, one folder per business
@@ -555,14 +656,15 @@ drop policy if exists "client files: upload" on storage.objects;
 drop policy if exists "client files: delete training" on storage.objects;
 create policy "client files: read" on storage.objects for select to authenticated
   using (bucket_id = 'client-files'
-         and ((storage.foldername(name))[1] = public.my_business_id()::text or public.is_staff()));
+         and ((storage.foldername(name))[1] = (select public.my_business_id())::text or (select public.is_staff())));
 create policy "client files: upload" on storage.objects for insert to authenticated
   with check (bucket_id = 'client-files'
-              and (storage.foldername(name))[1] = public.my_business_id()::text
-              and (storage.foldername(name))[2] in ('training', 'docs'));
+              and (storage.foldername(name))[1] = (select public.my_business_id())::text
+              and (storage.foldername(name))[2] in ('training', 'docs')
+              and (select public.can_upload()));
 create policy "client files: delete training" on storage.objects for delete to authenticated
   using (bucket_id = 'client-files'
-         and (storage.foldername(name))[1] = public.my_business_id()::text
+         and (storage.foldername(name))[1] = (select public.my_business_id())::text
          and (storage.foldername(name))[2] = 'training');
 
 -- ---------------------------------------------------------------------------
@@ -570,18 +672,22 @@ create policy "client files: delete training" on storage.objects for delete to a
 -- sees the answers. Answer numbers are 0-based option indexes.
 -- ---------------------------------------------------------------------------
 
-insert into public.courses (id, title, required_for, source_label, source_url, renew_months, jha_note, sort) values
+insert into public.courses (id, title, required_for, source_label, source_url, renew_months, jha_note, sort, lesson, lesson_url) values
   ('heat', 'Heat Illness Prevention', 'Employees in jobs covered by the heat rule',
    'Regulation R131-24', 'https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf', 12,
    'A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks. Judge conditions as if workers had no water, rest or shade.',
-   1),
+   1,
+   '["Drink water often, before you feel thirsty. Your employer must give you drinkable water.", "Take rest breaks in shade or a cool area, and take one right away if you feel signs of heat illness.", "Early signs: heavy sweating, cramps, headache, dizziness, nausea or weakness. Stop, cool down, drink water and tell your supervisor.", "Severe signs: confusion, slurred speech, fainting, collapse or a seizure. Call 911 right away and start cooling the person.", "New and returning workers need shorter first days to get used to the heat.", "Your workplace has a designated person who watches conditions and calls emergency services if someone gets sick. Know who it is.", "When most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks, the employer needs a written job hazard analysis, judged as if workers had no water, rest or shade."]'::jsonb,
+   'https://nevadabusinesswatch.com/lessons.html#s7l1'),
   ('hazcom', 'Hazard Communication', 'Employees who work with hazardous chemicals',
    '29 CFR 1910.1200', 'https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.1200', 12,
-   null, 2)
+   null, 2,
+   '["You have a right to know about the hazardous chemicals you work with.", "Safety Data Sheets (SDS) explain each chemical''s hazards and how to protect yourself. They must be available to you during every shift.", "Shipped chemical containers are labeled with the product identifier, a signal word, hazard statements and pictograms.", "Read the label before you use a chemical. Do not use anything from an unlabeled container: ask your supervisor.", "Wear the protective equipment the SDS calls for, and know where to find first aid steps for each chemical."]'::jsonb,
+   null)
 on conflict (id) do update set
   title = excluded.title, required_for = excluded.required_for, source_label = excluded.source_label,
   source_url = excluded.source_url, renew_months = excluded.renew_months, jha_note = excluded.jha_note,
-  sort = excluded.sort;
+  sort = excluded.sort, lesson = excluded.lesson, lesson_url = excluded.lesson_url;
 
 insert into public.course_questions (course_id, position, prompt, options) values
   ('heat', 1, 'When does a job need heat provisions and a written job hazard analysis?',

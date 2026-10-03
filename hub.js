@@ -450,6 +450,7 @@
           <div class="item-title">${esc(docTitle(d))}</div>
           ${pill(st.key)}
           <div class="item-sub">${esc(st.text)}</div>
+          ${d.reviewed_at && d.status === "current" ? `<div class="fine">Checked by NBW on ${esc(fmtDate(d.reviewed_at))}</div>` : ""}
           ${fileLinks(d.id, "doc")}
           ${canUpload ? `<button class="btn ${primary ? "btn-primary" : ""}" data-action="upload-doc" data-id="${esc(d.id)}">${ICON.upload}${primary ? "Upload this first" : "Upload"}</button>` : ""}
           ${st.key === "action" && (d.type_id === "heat_plan" || d.type_id === "safety_program") && S.packages.length
@@ -469,6 +470,7 @@
           <div class="item-sub">${esc(orderPrice(o))} · ordered ${esc(fmtDate(o.created_at))}</div>
           ${o.notes ? `<div class="item-sub">Notes: ${esc(o.notes)}</div>` : ""}
           ${!staffForm ? `<div class="item-sub">${esc(o.staff_note || ORDER_STATUS[o.status][2])}</div>` : ""}
+          ${staffForm && o.handled_at ? `<div class="fine">Last updated by staff ${esc(fmtDate(o.handled_at))}</div>` : ""}
           ${!staffForm && o.status === "requested" ? `<button class="btn btn-small" data-action="cancel-order" data-id="${esc(o.id)}">Cancel order</button>` : ""}
           ${staffForm ? staffOrderForm(o) : ""}
         </div>
@@ -802,6 +804,7 @@
             <div class="item-title">${esc(docTitle(d))}</div>
             ${pill(st.key)}
             <div class="item-sub">Client sees: ${esc(st.text)}</div>
+            <div class="fine">${d.reviewed_at ? `Last reviewed ${esc(fmtDate(d.reviewed_at))}` : "Not reviewed yet"}</div>
           </div>
         </div>
         ${fileLinks(d.id, "doc") || `<p class="fine" style="margin-top: 8px;">No files yet.</p>`}
@@ -875,16 +878,24 @@
   // ==========================================================================
   // SHEETS (modals)
   // ==========================================================================
-  function quizSheet(courseId, employeeId, error) {
+  function quizSheet(courseId, employeeId, error, signed) {
     const course = S.courses.find(c => c.id === courseId);
     const qs = (S.questions[courseId] || []).slice().sort((a, b) => a.position - b.position);
+    const points = (course && Array.isArray(course.lesson)) ? course.lesson : [];
+    const more = course && safeUrl(course.lesson_url);
     return {
       title: `${course ? course.title : courseId}: knowledge check`,
       content: `
         <form id="quizForm" class="stack" data-course="${esc(courseId)}" data-employee="${esc(employeeId)}">
           <p><strong>Employee:</strong> ${esc(employeeName(employeeId))}</p>
-          <p class="fine">Answer every question correctly to record this check. It is a review, not a certification.</p>
           ${error ? `<div class="msg msg-err" role="alert">${esc(error)}</div>` : ""}
+          ${points.length ? `
+            <section class="lesson" aria-labelledby="lessonTitle">
+              <h4 id="lessonTitle">Read this first</h4>
+              <ul>${points.map(pt => `<li>${esc(pt)}</li>`).join("")}</ul>
+              ${more ? `<a href="${esc(more)}" target="_blank" rel="noopener">Read the full lesson ›</a>` : ""}
+            </section>
+            <label class="check"><input type="checkbox" name="reviewed" required> I read these points.</label>` : ""}
           ${qs.map((q, qi) => `
             <fieldset>
               <legend>${qi + 1}. ${esc(q.prompt)}</legend>
@@ -892,7 +903,11 @@
                 <label class="opt"><input type="radio" name="q${esc(q.position)}" value="${oi}" required> ${esc(opt)}</label>
               `).join("")}
             </fieldset>`).join("")}
-          <div><button type="submit" class="btn btn-primary">Submit</button></div>
+          <label class="field">Employee signature: type your full name
+            <input type="text" name="signed_name" required maxlength="80" autocomplete="off" value="${esc(signed)}">
+          </label>
+          <p class="fine">By signing, the employee confirms they reviewed this material. This check is a review, not a certification.</p>
+          <div><button type="submit" class="btn btn-primary">Sign and submit</button></div>
         </form>`
     };
   }
@@ -959,7 +974,29 @@
   // ==========================================================================
   // RENDER
   // ==========================================================================
-  let lastFocus = null;
+  let lastFocus = null;  // focus key to return to when a sheet closes
+
+  // A selector that finds the same control again after the page redraws
+  function focusKey(el) {
+    const app = document.getElementById("app");
+    if (!el || el === document.body || !app.contains(el)) return null;
+    if (el.id) return "#" + CSS.escape(el.id);
+    const d = el.dataset;
+    const attrs = ["action", "id", "tab", "course", "employee", "kind", "authMode"]
+      .filter(k => d[k] != null)
+      .map(k => `[data-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}="${CSS.escape(d[k])}"]`).join("");
+    if (attrs) return (el.classList.contains("tab") ? ".tab" : "") + attrs;
+    const form = el.form;
+    if (el.name && form) {
+      const scope = form.id ? "#" + CSS.escape(form.id) : form.dataset.id ? `form[data-id="${CSS.escape(form.dataset.id)}"]` : null;
+      if (scope) return `${scope} [name="${CSS.escape(el.name)}"]` + (el.type === "radio" ? `[value="${CSS.escape(el.value)}"]` : "");
+    }
+    return null;
+  }
+  function refocus(key) {
+    const el = key && document.querySelector(key);
+    if (el) el.focus({ preventScroll: true });
+  }
 
   function sheetHtml() {
     return S.sheet ? `
@@ -976,7 +1013,27 @@
 
   function render() {
     const app = document.getElementById("app");
+    const keepFocus = focusKey(document.activeElement);
+    paint(app);
+    // Redrawing replaces the page, so put focus back where it was (or on the
+    // sheet when one is open) instead of dropping it at the top.
+    if (S.sheet) {
+      const modal = app.querySelector(".modal");
+      if (modal && !modal.contains(document.activeElement)) {
+        // Priority order: an error to announce, then the first field, then Close
+        const target = [".msg-err", "input, select, textarea", "[data-action='close-sheet']"]
+          .map(sel => modal.querySelector(sel)).find(Boolean);
+        if (target) {
+          if (target.classList.contains("msg")) target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: true });
+        }
+      }
+    } else {
+      refocus(keepFocus);
+    }
+  }
 
+  function paint(app) {
     if (!sb) { app.innerHTML = viewNotConfigured(); return; }
     document.body.classList.toggle("signed-out", !S.session || S.authMode === "recovery" || (!S.business && !S.isStaff));
     if (S.authMode === "recovery" || !S.session) { app.innerHTML = viewAuth(); return; }
@@ -1018,27 +1075,20 @@
           </button>`).join("")}
       </div></nav>
       ${sheetHtml()}`;
-
-    if (S.sheet) {
-      const target = app.querySelector(".modal input, .modal select, .modal [data-action='close-sheet']");
-      if (target) target.focus();
-    }
   }
 
   function openSheet(sheet) {
-    if (!S.sheet) lastFocus = document.activeElement;
+    if (!S.sheet) lastFocus = focusKey(document.activeElement);
     S.sheet = sheet;
+    // Blur inside the old sheet so a replacement sheet gets fresh focus
+    if (document.activeElement && document.activeElement.closest(".modal")) document.activeElement.blur();
     render();
   }
 
   function closeSheet() {
     S.sheet = null;
     render();
-    const d = lastFocus && lastFocus.dataset;
-    if (d && d.action && d.course && d.employee) {
-      const again = document.querySelector(`[data-action="${d.action}"][data-course="${CSS.escape(d.course)}"][data-employee="${CSS.escape(d.employee)}"]`);
-      if (again) again.focus();
-    }
+    refocus(lastFocus);
   }
 
   // Disables a form's buttons while a request runs
@@ -1142,18 +1192,19 @@
     const data = new FormData(form);
     const qs = (S.questions[courseId] || []).slice().sort((a, b) => a.position - b.position);
     const answers = qs.map(q => Number(data.get("q" + q.position)));
+    const signed = String(data.get("signed_name") || "").trim();
 
     const { data: result, error } = await sb.rpc("submit_check", {
-      p_employee_id: employeeId, p_course_id: courseId, p_answers: answers
+      p_employee_id: employeeId, p_course_id: courseId, p_answers: answers, p_signed_name: signed
     });
-    if (error) return openSheet(quizSheet(courseId, employeeId, errText(error)));
+    if (error) return openSheet(quizSheet(courseId, employeeId, errText(error), signed));
     if (!result.passed) {
       const n = result.wrong;
       return openSheet(quizSheet(courseId, employeeId,
-        `${n} answer${n > 1 ? "s are" : " is"} not right. Review the material and try again.`));
+        `${n} answer${n > 1 ? "s are" : " is"} not right. Review the material and try again.`, signed));
     }
 
-    S.attestations.unshift({ employee_id: employeeId, course_id: courseId, completed_on: result.completed_on });
+    S.attestations.unshift({ employee_id: employeeId, course_id: courseId, completed_on: result.completed_on, signed_name: signed });
     openSheet(infoSheet("Check recorded",
       `${employeeName(employeeId)} passed the ${courseTitle(courseId)} knowledge check on ${fmtDate(result.completed_on)}. Due again ${fmtDate(result.due_on)}. Keep a signed training record as well.`));
   }
@@ -1258,10 +1309,11 @@
       return `"${s.replace(/"/g, '""')}"`;
     };
     const labels = { valid: "Current", soon: "Due soon", expired: "Overdue", none: "No record" };
-    const rows = [["Employee", "Job title", "Employee status", "Training", "Last completed", "Due again", "Standing"]];
+    const rows = [["Employee", "Job title", "Employee status", "Training", "Last completed", "Signed as", "Due again", "Standing"]];
     S.employees.forEach(e => S.courses.forEach(c => {
       const st = standing(e.id, c);
-      rows.push([e.full_name, e.job_title || "", e.active ? "Active" : "Archived", c.title, st.last || "", st.due || "", labels[st.key]]);
+      const rec = S.attestations.find(a => a.employee_id === e.id && a.course_id === c.id && a.completed_on === st.last);
+      rows.push([e.full_name, e.job_title || "", e.active ? "Active" : "Archived", c.title, st.last || "", (rec && rec.signed_name) || "", st.due || "", labels[st.key]]);
     }));
     const csv = rows.map(r => r.map(cell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
@@ -1312,9 +1364,9 @@
       S.pageMsg = "Enter prices as dollar amounts, like 1020 or 510.50.";
       return render();
     }
-    const { error } = await sb.from("orders").update(changes).eq("id", id);
+    const { data: row, error } = await sb.from("orders").update(changes).eq("id", id).select().single();
     S.pageMsg = error ? errText(error) : null;
-    if (!error) Object.assign(S.orders.find(o => o.id === id) || {}, changes);
+    if (!error) S.orders = S.orders.map(o => (o.id === id ? row : o));
     render();
   }
   async function saveReview(form) {
@@ -1325,9 +1377,10 @@
       expires_on: String(data.get("expires_on") || "") || null,
       note: String(data.get("note") || "").trim() || null
     };
-    const { error } = await sb.from("documents").update(changes).eq("id", id);
+    // Read the row back: the database adds the review stamp
+    const { data: row, error } = await sb.from("documents").update(changes).eq("id", id).select().single();
     S.pageMsg = error ? errText(error) : null;
-    if (!error) Object.assign(S.documents.find(d => d.id === id) || {}, changes);
+    if (!error) S.documents = S.documents.map(d => (d.id === id ? row : d));
     render();
   }
 
@@ -1402,7 +1455,19 @@
   });
 
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && S.sheet) closeSheet();
+    if (!S.sheet) return;
+    if (e.key === "Escape") { closeSheet(); return; }
+    if (e.key !== "Tab") return;
+    // Keep keyboard focus inside the open sheet
+    const modal = document.querySelector(".modal");
+    if (!modal) return;
+    const items = Array.from(modal.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex='-1'])"))
+      .filter(el => el.offsetParent !== null);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
   });
 
   const FORMS = {
