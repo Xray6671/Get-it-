@@ -36,7 +36,8 @@ To serve it from nevadabusinesswatch.com, add the domain under **Settings → Pa
 A login area for clients and the NBW team. Its code is `hub.html`, `hub.js`, `hub.css` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
 
 - **Business owners** upload their licenses, insurance certificates and written plans; track crew safety training (knowledge checks graded on the server, training files, a CSV export); and read updates from the NBW team.
-- **NBW staff** see every client's file, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
+- **Ordering**: owners can order the Safety & Heat packages from `safety.html` at the client price (15% off, rounded to whole dollars). No payment is taken in the app: an order is a request that NBW staff confirm, reprice if needed (for example the founding rate) and invoice. Heat Plan orders from crews over 25 come in as quote requests. Prices live in `public.packages` at the bottom of `schema.sql`.
+- **NBW staff** see every client's file and new orders, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
 
 Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly.
 

@@ -98,6 +98,27 @@ try {
   await page.click("[data-action=close-sheet]");
   ok((await text(samRow)).includes("Current"), "knowledge check works in the demo");
 
+  // order the Heat Plan through the app, NBW confirms it
+  await page.click(".tab[data-tab=home]");
+  await page.click(".offer [data-tab=packages]");
+  await page.click(".package[data-package=heat_plan] [data-action=order-package]");
+  await page.click("#orderForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  ok((await text(".modal .msg-ok")).includes("invoice for $510"), "client orders the Heat Plan at the client price");
+  await page.click("[data-action=close-sheet]");
+  await page.screenshot({ path: join(tmp, "3-packages.png"), fullPage: true });
+  await page.click("[data-demo-view=staff]");
+  await page.waitForSelector("text=Clients");
+  ok((await text(".lede")).includes("1 new order to confirm"), "staff see the new order");
+  await page.click(".clients .item:has-text('Desert Ridge') [data-action=open-client]");
+  await page.selectOption(".order-form select[name=status]", "confirmed");
+  await page.fill(".order-form input[name=staff_note]", "Invoice sent. We'll call to schedule the walkthrough.");
+  await page.click(".order-form button[type=submit]");
+  await page.waitForSelector(".order:has-text('Confirmed')");
+  await page.click("[data-demo-view=owner]");
+  await page.waitForSelector("text=Welcome back, Marco");
+  ok((await text(".offer")).includes("Confirmed") && (await text(".offer")).includes("schedule the walkthrough"), "client sees the confirmed order");
+
   for (const tab of ["home", "documents", "training", "employees", "updates"]) {
     await page.click(`[data-tab=${tab}]`);
     ok(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), `no sideways scroll on ${tab}`);

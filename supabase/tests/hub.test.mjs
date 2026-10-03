@@ -222,6 +222,8 @@ try {
   ok((await text(".updates")).includes("Got your <b>North Las Vegas</b> license."), "latest update shown as plain text");
   ok((await text(".tab[data-tab=documents] .badge")) === "2", "documents tab badge counts action items");
 
+  ok(!!(await page.$(".needs .item:has-text('heat illness prevention plan') >> text=We can write it for you")), "missing heat plan offers the done-for-you option");
+
   // upload to the requested heat plan
   await page.click(".needs .item:has-text('heat illness prevention plan') [data-action=upload-doc]");
   await page.waitForSelector("#docUploadForm");
@@ -260,6 +262,59 @@ try {
   await page.click("[data-tab=updates]");
   ok((await page.$$(".updates .update")).length === 1, "updates tab lists team messages");
 
+  // ---- done-for-you packages ----
+  await page.click("[data-tab=home]");
+  ok((await text(".offer")).includes("$1,200") && (await text(".offer")).includes("$1,020"), "home offers packages at the client price");
+  await page.click(".offer [data-tab=packages]");
+  await page.waitForSelector("text=Heat & safety packages");
+  ok((await page.$$(".packages .package")).length === 6, "all six packages listed");
+  ok(!(await page.$(".tab.active")), "packages page sits outside the tab bar");
+  const heatPkg = ".package[data-package=heat_plan]";
+  ok((await text(heatPkg)).includes("50% to start ($510), 50% at delivery."), "done-for-you terms match the site");
+
+  await page.click(`${heatPkg} [data-action=order-package]`);
+  await page.waitForSelector("#orderForm");
+  ok((await text("#orderForm .summary-list")).includes("$510") && (await text("#orderForm")).includes("No payment now"), "order sheet shows deposit and says nothing is charged");
+  await page.fill("#orderForm textarea[name=notes]", "Two sites, Spanish-speaking crew");
+  await page.click("#orderForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  ok((await text(".modal .msg-ok")).includes("invoice for $510"), "confirmation names the deposit");
+  await page.click("[data-action=close-sheet]");
+  const placed = await page.evaluate(() => window.__fake.db.orders[0]);
+  ok(placed.price_cents === 102000 && placed.deposit_cents === 51000 && placed.notes === "Two sites, Spanish-speaking crew", "order stored with server price");
+  ok((await text(heatPkg)).includes("You have this order open"), "ordered package can't be ordered twice");
+  ok((await text(".orders .order")).includes("Requested"), "order shows as requested");
+
+  await page.click(".package[data-package=diy_kit] [data-action=order-package]");
+  await page.click("#orderForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  await page.click("[data-action=close-sheet]");
+  await page.click(".orders .order:has-text('DIY Compliance Kit') [data-action=cancel-order]");
+  await page.waitForSelector(".orders .order:has-text('DIY Compliance Kit') >> text=Cancelled");
+  ok(true, "owner can cancel an unconfirmed order");
+
+  await page.click("[data-tab=home]");
+  ok((await text(".offer")).includes("Heat Plan") && (await text(".offer")).includes("Requested"), "home shows the open order");
+
+  // a crew over 25 gets a quote instead of a price
+  await page.evaluate(biz => {
+    const db = window.__fake.db;
+    db.orders.forEach(o => { if (o.package_id === "heat_plan") o.status = "delivered"; });
+    for (let i = 0; i < 25; i++) db.employees.push({ id: "x" + i, business_id: biz, full_name: "Worker " + i, active: true, created_at: new Date().toISOString() });
+  }, bizId);
+  await reloadData(page, OWNER);
+  await page.click(".offer [data-tab=packages]");
+  ok((await text(heatPkg)).includes("Your crew list has 28 employees") && (await text(`${heatPkg} [data-action=order-package]`)) === "Request a quote", "big crews are offered a quote");
+  ok((await text(".package[data-package=full_program]")).includes("$2,040"), "other packages keep their price");
+  await page.click(`${heatPkg} [data-action=order-package]`);
+  await page.click("#orderForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  ok((await text(".modal .msg-ok")).includes("free check and send a quote"), "quote request confirmed");
+  ok((await page.evaluate(() => window.__fake.db.orders.at(-1).price_cents)) === null, "quote request has no price");
+  await page.click("[data-action=close-sheet]");
+  await page.evaluate(() => window.__fake.db.employees.splice(-25));
+  await reloadData(page, OWNER);
+
   // ---- token refresh keeps forms intact ----
   await page.click("[data-tab=employees]");
   await page.fill("#employeeForm input[name=full_name]", "Typing in progress");
@@ -268,8 +323,9 @@ try {
   ok((await page.inputValue("#employeeForm input[name=full_name]")) === "Typing in progress", "form survives token refresh");
 
   // ---- layout + sign out ----
-  for (const tab of ["home", "documents", "training", "employees", "updates"]) {
-    await page.click(`[data-tab=${tab}]`);
+  for (const tab of ["home", "documents", "training", "employees", "updates", "packages"]) {
+    if (tab === "packages") { await page.click(".tab[data-tab=home]"); await page.click(".offer [data-tab=packages]"); }
+    else await page.click(`.tab[data-tab=${tab}]`);
     ok(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), `no sideways scroll on ${tab} at phone width`);
     await page.screenshot({ path: join(tmp, `hub-${tab}.png`), fullPage: true });
   }
@@ -297,12 +353,13 @@ try {
         { id: "d2", business_id: "b-roof", type_id: "general_liability", label: null, status: "current", expires_on: soon, note: null, created_at: now }
       );
       db.document_files.push({ id: "f1", document_id: "d1", business_id: "b-roof", storage_path: "b-roof/docs/u/license.pdf", file_name: "license.pdf", size_bytes: 4000, created_at: now });
+      db.orders.push({ id: "o1", business_id: "b-roof", package_id: "heat_plan", status: "requested", price_cents: 102000, deposit_cents: 51000, notes: "Before June please", staff_note: null, created_by: "user-marco@example.com", created_at: now });
     }, { soon: daysFromNow(10) });
     await signUpAndIn(page, "team@nbw.test");
     await page.waitForSelector("text=Clients");
 
     ok(!!(await page.$(".staff-chip")) && !(await page.$("#setupForm")) && !(await page.$(".tabbar")), "staff get the client list, not owner setup");
-    ok((await text(".lede")) === "1 document waiting for review.", "staff see review queue size");
+    ok((await text(".lede")) === "1 document waiting for review · 1 new order to confirm.", "staff see review and order queue");
     ok((await text(".clients .item:first-child .item-title")) === "Desert Ridge Roofing LLC", "client with reviews listed first");
     ok((await text(".clients")).includes("Blue Pool <i>Service</i>"), "client names shown as plain text");
 
@@ -319,6 +376,17 @@ try {
     await page.waitForFunction(() => window.__fake.db.documents.find(d => d.id === "d1").status === "current");
     ok((await page.evaluate(() => window.__fake.db.documents.find(d => d.id === "d1").status)) === "current", "review saves status");
     ok((await text(".review-card:has-text('C-15')")).includes("Current"), "reviewed document shows current");
+
+    const order = ".order[data-order=o1]";
+    ok((await text(order)).includes("Before June please") && (await text(order)).includes("$1,020"), "staff see the order and client notes");
+    await page.selectOption(`${order} select[name=status]`, "confirmed");
+    await page.fill(`${order} input[name=price]`, "950");
+    await page.fill(`${order} input[name=deposit]`, "475");
+    await page.fill(`${order} input[name=staff_note]`, "Founding rate. Invoice sent.");
+    await page.click(`${order} button[type=submit]`);
+    await page.waitForFunction(() => window.__fake.db.orders[0].status === "confirmed");
+    const saved = await page.evaluate(() => window.__fake.db.orders[0]);
+    ok(saved.price_cents === 95000 && saved.deposit_cents === 47500 && saved.staff_note === "Founding rate. Invoice sent.", "staff confirm and reprice an order");
 
     await page.selectOption("#requestForm select[name=type_id]", "workers_comp");
     await page.click("#requestForm button[type=submit]");

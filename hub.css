@@ -98,7 +98,7 @@ tr:last-child td { border-bottom: none; }
 .pill-info { background: var(--blue-bg); color: var(--blue-text); }
 
 label.field { display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; font-weight: 600; }
-input[type=text], input[type=email], input[type=password], input[type=date], select, input[type=file] { width: 100%; border: 1px solid #d6d3cb; padding: 10px 12px; border-radius: 10px; font-size: 1rem; background: #fff; color: var(--text); }
+input[type=text], input[type=email], input[type=password], input[type=date], input[type=number], select, input[type=file] { width: 100%; border: 1px solid #d6d3cb; padding: 10px 12px; border-radius: 10px; font-size: 1rem; background: #fff; color: var(--text); }
 input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold); }
 
 /* Bottom tab bar, like the client app */
@@ -154,3 +154,15 @@ body.signed-out footer { padding-bottom: 32px; }
   td:not([data-label]) { justify-content: flex-end; padding-top: 8px; }
   h1 { font-size: 1.6rem; }
 }
+
+/* Packages and orders */
+.price { font-size: 1.05rem; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.price s, .offer-list s, .summary-list s { color: var(--muted); font-weight: 500; }
+.price strong { font-size: 1.25rem; font-weight: 800; }
+.offer-list { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.offer-list li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--paper); border-radius: 10px; flex-wrap: wrap; }
+.offer-list .price { font-size: 0.98rem; }
+.summary-list { display: flex; flex-direction: column; gap: 6px; background: var(--paper); border-radius: 10px; padding: 12px; }
+.summary-list div { display: flex; justify-content: space-between; gap: 12px; }
+.summary-list dt { color: var(--muted); }
+.summary-list dd { font-variant-numeric: tabular-nums; }

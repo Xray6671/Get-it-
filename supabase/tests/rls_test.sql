@@ -244,6 +244,68 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b
 select pg_temp.expect((select count(*) from public.updates) = 0, 'B cannot see A updates');
 select pg_temp.expect((select count(*) from public.documents where status = 'requested') = 1, 'B sees request from NBW');
 
+-- ---------- orders ----------
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.expect((select count(*) from public.packages) = 6, 'owners see the packages');
+
+select set_config('a.order', public.order_package('heat_plan', '  Two crews, one site  ')::text, false);
+select pg_temp.expect((select price_cents from public.orders where id = current_setting('a.order')::uuid) = 102000, 'order uses the client price from the server');
+select pg_temp.expect((select deposit_cents from public.orders where id = current_setting('a.order')::uuid) = 51000, 'done-for-you deposit is half');
+select pg_temp.expect((select notes from public.orders where id = current_setting('a.order')::uuid) = 'Two crews, one site', 'order notes trimmed');
+select set_config('a.kit', public.order_package('diy_kit', null)::text, false);
+select pg_temp.expect((select deposit_cents from public.orders where id = current_setting('a.kit')::uuid) = 16900, 'kits are paid in full');
+
+do $$ begin
+  insert into public.orders (business_id, package_id, price_cents, deposit_cents, created_by)
+  values (public.my_business_id(), 'full_program', 1, 1, auth.uid());
+  raise exception 'FAILED: owner inserted an order with their own price';
+exception when insufficient_privilege then raise notice 'ok: owners cannot set their own price';
+end $$;
+
+do $$ declare n int; begin
+  update public.orders set status = 'confirmed', price_cents = 1;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAILED: owner changed an order'; end if;
+  raise notice 'ok: owners cannot confirm or reprice orders';
+end $$;
+
+do $$ begin
+  perform public.order_package('no_such_package', null);
+  raise exception 'FAILED: unknown package ordered';
+exception when invalid_parameter_value then raise notice 'ok: unknown packages rejected';
+end $$;
+
+-- a crew over the Heat Plan's 25 gets a quote instead of a price
+reset role;
+insert into public.employees (business_id, full_name)
+select b.id, 'Worker ' || g from public.businesses b, generate_series(1, 26) g where b.name = 'A Pools';
+set role authenticated;
+select set_config('a.quote', public.order_package('heat_plan', null)::text, false);
+select pg_temp.expect((select price_cents from public.orders where id = current_setting('a.quote')::uuid) is null, 'big crews get a quote, not a price');
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', false);
+select pg_temp.expect((select count(*) from public.orders) = 0, 'B cannot see A orders');
+do $$ begin
+  perform public.cancel_order(current_setting('a.order')::uuid);
+  raise exception 'FAILED: B cancelled A order';
+exception when insufficient_privilege then raise notice 'ok: B cannot cancel A orders';
+end $$;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000c', false);
+select pg_temp.expect((select count(*) from public.orders) = 3, 'staff see every order');
+update public.orders set status = 'confirmed', price_cents = 95000, deposit_cents = 47500, staff_note = 'Founding rate'
+ where id = current_setting('a.order')::uuid;
+
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false);
+select pg_temp.expect((select status from public.orders where id = current_setting('a.order')::uuid) = 'confirmed', 'owner sees the confirmation');
+do $$ begin
+  perform public.cancel_order(current_setting('a.order')::uuid);
+  raise exception 'FAILED: owner cancelled a confirmed order';
+exception when insufficient_privilege then raise notice 'ok: confirmed orders cannot be cancelled in the app';
+end $$;
+select public.cancel_order(id) from public.orders where package_id = 'diy_kit';
+select pg_temp.expect((select status from public.orders where package_id = 'diy_kit') = 'cancelled', 'owner can cancel an unconfirmed order');
+
 -- ---------- logged-out visitor ----------
 set role anon;
 select set_config('request.jwt.claim.sub', '', false);

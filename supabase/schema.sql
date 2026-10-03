@@ -145,6 +145,40 @@ create table if not exists public.updates (
 );
 create index if not exists updates_business_idx on public.updates (business_id, created_at desc);
 
+-- Services clients can order from NBW. Prices are in cents; client_price_cents
+-- is what a Business File customer pays. max_employees: a bigger crew gets a
+-- quote instead of the listed price.
+create table if not exists public.packages (
+  id                  text primary key,
+  title               text not null,
+  summary             text not null,
+  price_cents         int  not null check (price_cents > 0),
+  client_price_cents  int  not null check (client_price_cents > 0),
+  billing             text not null check (billing in ('one_time', 'monthly', 'per_session')),
+  done_for_you        boolean not null default true,
+  max_employees       int,
+  active              boolean not null default true,
+  sort                int  not null default 0
+);
+
+-- An order is a request until NBW confirms it and invoices the client.
+-- No payment is taken in the app. price_cents null = quote after a free check.
+create table if not exists public.orders (
+  id             uuid primary key default gen_random_uuid(),
+  business_id    uuid not null references public.businesses (id) on delete cascade,
+  package_id     text not null references public.packages (id),
+  status         text not null default 'requested'
+                 check (status in ('requested', 'confirmed', 'in_progress', 'delivered', 'cancelled')),
+  price_cents    int check (price_cents is null or price_cents >= 0),
+  deposit_cents  int check (deposit_cents is null or deposit_cents >= 0),
+  notes          text check (notes is null or char_length(notes) <= 1000),
+  staff_note     text check (staff_note is null or char_length(staff_note) <= 1000),
+  created_by     uuid not null references auth.users (id),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists orders_business_idx on public.orders (business_id, created_at desc);
+
 -- ---------------------------------------------------------------------------
 -- Helpers
 -- ---------------------------------------------------------------------------
@@ -253,6 +287,64 @@ drop trigger if exists documents_touch on public.documents;
 create trigger documents_touch before update on public.documents
   for each row execute function public.touch_updated_at();
 
+drop trigger if exists orders_touch on public.orders;
+create trigger orders_touch before update on public.orders
+  for each row execute function public.touch_updated_at();
+
+-- An owner orders a package. The price comes from public.packages on the
+-- server, never from the browser. Done-for-you work is 50% to start.
+create or replace function public.order_package(p_package_id text, p_notes text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_business uuid := public.my_business_id();
+  v_pkg      public.packages;
+  v_crew     int;
+  v_price    int;
+  v_id       uuid;
+begin
+  if v_business is null then
+    raise exception 'No business on this account' using errcode = '42501';
+  end if;
+  select * into v_pkg from public.packages where id = p_package_id and active;
+  if v_pkg.id is null then
+    raise exception 'That package is not available' using errcode = '22023';
+  end if;
+
+  select count(*) into v_crew from public.employees where business_id = v_business and active;
+  v_price := case when v_pkg.max_employees is not null and v_crew > v_pkg.max_employees
+                  then null else v_pkg.client_price_cents end;
+
+  insert into public.orders (business_id, package_id, price_cents, deposit_cents, notes, created_by)
+  values (v_business, v_pkg.id, v_price,
+          case when v_price is null then null
+               when v_pkg.done_for_you and v_pkg.billing = 'one_time' then round(v_price / 2.0)
+               else v_price end,
+          nullif(btrim(p_notes), ''), auth.uid())
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+-- An owner can withdraw an order until NBW confirms it.
+create or replace function public.cancel_order(p_order_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.orders set status = 'cancelled'
+   where id = p_order_id and business_id = public.my_business_id() and status = 'requested';
+  if not found then
+    raise exception 'Only orders NBW hasn''t confirmed yet can be cancelled here' using errcode = '42501';
+  end if;
+end;
+$$;
+
 -- An owner sends in a document file. Adds it to an existing document (one NBW
 -- requested, or a renewal) or starts a new one, and always puts the document
 -- under review: only NBW staff can mark a document current.
@@ -320,11 +412,13 @@ alter table public.document_types   enable row level security;
 alter table public.documents        enable row level security;
 alter table public.document_files   enable row level security;
 alter table public.updates          enable row level security;
+alter table public.packages         enable row level security;
+alter table public.orders           enable row level security;
 
 -- Logged-out visitors get nothing.
 revoke all on public.businesses, public.employees, public.courses, public.course_questions,
               public.attestations, public.training_files, public.staff, public.document_types,
-              public.documents, public.document_files, public.updates from anon;
+              public.documents, public.document_files, public.updates, public.packages, public.orders from anon;
 revoke all on schema private from anon, authenticated;
 revoke all on all tables in schema private from anon, authenticated;
 revoke all on function public.submit_check(uuid, text, int[]) from public, anon;
@@ -335,11 +429,15 @@ revoke all on function public.is_staff() from public, anon;
 grant execute on function public.is_staff() to authenticated;
 revoke all on function public.submit_document(uuid, text, text, date, text, text, bigint) from public, anon;
 grant execute on function public.submit_document(uuid, text, text, date, text, text, bigint) to authenticated;
+revoke all on function public.order_package(text, text) from public, anon;
+grant execute on function public.order_package(text, text) to authenticated;
+revoke all on function public.cancel_order(uuid) from public, anon;
+grant execute on function public.cancel_order(uuid) to authenticated;
 
 -- Only the operations each table needs; RLS narrows them further.
 revoke all on public.businesses, public.employees, public.courses, public.course_questions,
               public.attestations, public.training_files, public.staff, public.document_types,
-              public.documents, public.document_files, public.updates from authenticated;
+              public.documents, public.document_files, public.updates, public.packages, public.orders from authenticated;
 grant select, insert, update on public.businesses     to authenticated;
 grant select, insert, update on public.employees      to authenticated;
 grant select                 on public.courses        to authenticated;
@@ -350,6 +448,8 @@ grant select                 on public.document_types to authenticated;
 grant select, insert, update on public.documents      to authenticated;
 grant select                 on public.document_files to authenticated;
 grant select, insert         on public.updates        to authenticated;
+grant select                 on public.packages       to authenticated;
+grant select, update         on public.orders         to authenticated;
 -- public.staff: no grants. is_staff() reads it on the server.
 
 drop policy if exists "own business: read"   on public.businesses;
@@ -423,6 +523,18 @@ create policy "updates: read" on public.updates for select to authenticated
   using (business_id = public.my_business_id() or public.is_staff());
 create policy "updates: staff post" on public.updates for insert to authenticated
   with check (public.is_staff() and author_id = auth.uid());
+
+drop policy if exists "packages: read" on public.packages;
+create policy "packages: read" on public.packages for select to authenticated using (true);
+
+-- Owners place and cancel orders through order_package() and cancel_order();
+-- only staff change an order directly.
+drop policy if exists "orders: read"         on public.orders;
+drop policy if exists "orders: staff update" on public.orders;
+create policy "orders: read" on public.orders for select to authenticated
+  using (business_id = public.my_business_id() or public.is_staff());
+create policy "orders: staff update" on public.orders for update to authenticated
+  using (public.is_staff()) with check (public.is_staff());
 
 -- ---------------------------------------------------------------------------
 -- File storage: private bucket, one folder per business
@@ -501,3 +613,29 @@ insert into public.document_types (id, title, icon, sort) values
   ('safety_program',    'Written workplace safety program',     'doc',     7),
   ('other',             'Other document',                       'doc',     99)
 on conflict (id) do update set title = excluded.title, icon = excluded.icon, sort = excluded.sort;
+
+-- Same packages and prices as safety.html. Business File customers pay the
+-- client price: 15% off, rounded to whole dollars. Edit and re-run to change.
+insert into public.packages (id, title, summary, price_cents, client_price_cents, billing, done_for_you, max_employees, sort) values
+  ('heat_plan', 'Heat Plan',
+   'For 11 to 25 employees. We do your hazard analysis, write your heat plan, set up your designated person and train one crew.',
+   120000, 102000, 'one_time', true, 25, 1),
+  ('full_program', 'Full Safety Program + Heat Plan',
+   'Everything in the Heat Plan, plus a complete written safety program, injury reporting steps, safety committee setup (26+ employees) and two trainings.',
+   240000, 204000, 'one_time', true, null, 2),
+  ('stay_ready', 'Stay Ready',
+   'A spring review before summer, yearly refresher training, new-hire materials and updates when Nevada rules change.',
+   20000, 17000, 'monthly', true, null, 3),
+  ('extra_training', 'Extra training session',
+   'One more crew training session, in English or Spanish.',
+   30000, 25500, 'per_session', true, null, 4),
+  ('kit_review', 'Kit + Expert Review',
+   'Our fill-in safety program and heat plan kit, plus we review your finished draft and walk you through fixes.',
+   39900, 33900, 'one_time', false, null, 5),
+  ('diy_kit', 'DIY Compliance Kit',
+   'Fill-in safety program and heat plan, hazard worksheet, forms, English and Spanish handouts and step-by-step instructions.',
+   19900, 16900, 'one_time', false, null, 6)
+on conflict (id) do update set
+  title = excluded.title, summary = excluded.summary, price_cents = excluded.price_cents,
+  client_price_cents = excluded.client_price_cents, billing = excluded.billing,
+  done_for_you = excluded.done_for_you, max_employees = excluded.max_employees, sort = excluded.sort;

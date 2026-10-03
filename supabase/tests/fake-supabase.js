@@ -10,6 +10,15 @@ window.supabase.createClient = function () {
   const db = {
     businesses: [], employees: [], attestations: [], training_files: [],
     documents: [], document_files: [], updates: [],
+    orders: [],
+    packages: [
+      { id: "heat_plan", title: "Heat Plan", summary: "For 11 to 25 employees. We do your hazard analysis, write your heat plan, set up your designated person and train one crew.", price_cents: 120000, client_price_cents: 102000, billing: "one_time", done_for_you: true, max_employees: 25, active: true, sort: 1 },
+      { id: "full_program", title: "Full Safety Program + Heat Plan", summary: "Everything in the Heat Plan, plus a complete written safety program, injury reporting steps, safety committee setup (26+ employees) and two trainings.", price_cents: 240000, client_price_cents: 204000, billing: "one_time", done_for_you: true, max_employees: null, active: true, sort: 2 },
+      { id: "stay_ready", title: "Stay Ready", summary: "A spring review before summer, yearly refresher training, new-hire materials and updates when Nevada rules change.", price_cents: 20000, client_price_cents: 17000, billing: "monthly", done_for_you: true, max_employees: null, active: true, sort: 3 },
+      { id: "extra_training", title: "Extra training session", summary: "One more crew training session, in English or Spanish.", price_cents: 30000, client_price_cents: 25500, billing: "per_session", done_for_you: true, max_employees: null, active: true, sort: 4 },
+      { id: "kit_review", title: "Kit + Expert Review", summary: "Our fill-in safety program and heat plan kit, plus we review your finished draft and walk you through fixes.", price_cents: 39900, client_price_cents: 33900, billing: "one_time", done_for_you: false, max_employees: null, active: true, sort: 5 },
+      { id: "diy_kit", title: "DIY Compliance Kit", summary: "Fill-in safety program and heat plan, hazard worksheet, forms, English and Spanish handouts and step-by-step instructions.", price_cents: 19900, client_price_cents: 16900, billing: "one_time", done_for_you: false, max_employees: null, active: true, sort: 6 }
+    ],
     document_types: [
       { id: "nscb_license", title: "NSCB contractor license", icon: "id", sort: 1 },
       { id: "general_liability", title: "General liability certificate", icon: "shield", sort: 4 },
@@ -94,6 +103,25 @@ window.supabase.createClient = function () {
     async rpc(name, args) {
       window.__fake.calls.push("rpc:" + name);
       if (name === "is_staff") return { data: isStaff(), error: null };
+      if (name === "order_package") {
+        const biz = db.businesses.find(b => b.owner_id === session.user.id);
+        const p = db.packages.find(x => x.id === args.p_package_id && x.active);
+        if (!biz || !p) return { data: null, error: { message: "That package is not available" } };
+        const crew = db.employees.filter(e => e.business_id === biz.id && e.active).length;
+        const price = p.max_employees != null && crew > p.max_employees ? null : p.client_price_cents;
+        const order = { id: uuid(), business_id: biz.id, package_id: p.id, status: "requested", price_cents: price,
+          deposit_cents: price == null ? null : p.done_for_you && p.billing === "one_time" ? Math.round(price / 2) : price,
+          notes: (args.p_notes || "").trim() || null, staff_note: null, created_by: session.user.id, created_at: new Date().toISOString() };
+        db.orders.push(order);
+        return { data: order.id, error: null };
+      }
+      if (name === "cancel_order") {
+        const biz = db.businesses.find(b => b.owner_id === session.user.id);
+        const o = db.orders.find(x => x.id === args.p_order_id && biz && x.business_id === biz.id && x.status === "requested");
+        if (!o) return { data: null, error: { message: "Only orders NBW hasn't confirmed yet can be cancelled here" } };
+        o.status = "cancelled";
+        return { data: null, error: null };
+      }
       if (name === "submit_document") {
         const biz = db.businesses.find(b => b.owner_id === session.user.id);
         if (!args.p_storage_path.startsWith(biz.id + "/docs/")) return { data: null, error: { message: "File must be stored in your docs folder" } };

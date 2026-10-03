@@ -53,6 +53,11 @@
     return (error && (error.message || error.error_description)) || "Something went wrong. Try again.";
   }
   function byNewest(a, b) { return String(b.created_at).localeCompare(String(a.created_at)); }
+  function money(cents) {
+    const d = cents / 100;
+    return "$" + d.toLocaleString("en-US", { minimumFractionDigits: d % 1 ? 2 : 0, maximumFractionDigits: 2 });
+  }
+  const BILLING = { one_time: "one time", monthly: "per month", per_session: "per session" };
 
   // ==========================================================================
   // STATE
@@ -77,6 +82,8 @@
     documents: [],
     docFiles: [],
     updates: [],
+    packages: [],
+    orders: [],
     tab: "home",
     showArchived: false,
     sheet: null,
@@ -124,7 +131,9 @@
         attestations: sb.from("attestations").select("*").order("completed_on", { ascending: false }),
         documents: sb.from("documents").select("*").order("created_at", { ascending: false }),
         docFiles: sb.from("document_files").select("*").order("created_at", { ascending: false }),
-        updates: sb.from("updates").select("*").order("created_at", { ascending: false })
+        updates: sb.from("updates").select("*").order("created_at", { ascending: false }),
+        packages: sb.from("packages").select("*").order("sort"),
+        orders: sb.from("orders").select("*").order("created_at", { ascending: false })
       };
 
       if (S.isStaff) {
@@ -155,6 +164,11 @@
     render();
   }
 
+  async function reloadOrders() {
+    const d = await fetchAll({ orders: sb.from("orders").select("*").order("created_at", { ascending: false }) });
+    Object.assign(S, d);
+  }
+
   async function reloadDocuments() {
     const d = await fetchAll({
       documents: sb.from("documents").select("*").order("created_at", { ascending: false }),
@@ -180,6 +194,26 @@
   function docTitle(d) {
     const t = docType(d.type_id).title;
     return d.label ? `${t} · ${d.label}` : t;
+  }
+
+  const ORDER_STATUS = {
+    requested: ["pill-info", "Requested", "We'll confirm your order and send an invoice."],
+    confirmed: ["pill-ok", "Confirmed", "Confirmed. Your invoice is on its way."],
+    in_progress: ["pill-info", "In progress", "We're working on it."],
+    delivered: ["pill-ok", "Delivered", "Done and delivered."],
+    cancelled: ["pill-muted", "Cancelled", "Cancelled."]
+  };
+  const OPEN_ORDER = ["requested", "confirmed", "in_progress"];
+  function pkg(id) { return S.packages.find(p => p.id === id) || { id, title: id, billing: "one_time" }; }
+  function orderPill(status) {
+    const [cls, text] = ORDER_STATUS[status];
+    return `<span class="pill ${cls}">${text}</span>`;
+  }
+  function orderPrice(o) {
+    if (o.price_cents == null) return "Quote after a free check";
+    const p = pkg(o.package_id);
+    const due = o.deposit_cents != null && o.deposit_cents !== o.price_cents ? ` · ${money(o.deposit_cents)} to start` : "";
+    return `${money(o.price_cents)} ${BILLING[p.billing] || ""}${due}`;
   }
 
   // Training status is always derived from the latest attestation, never stored
@@ -262,7 +296,8 @@
     home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>'),
     folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
     badge: svg('<path d="M12 3l2.4 1.8 3 .1.9 2.9 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.9-3 .1L12 21l-2.4-1.8-3-.1-.9-2.9-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.9 3-.1z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
-    chat: svg('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>')
+    chat: svg('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>'),
+    tools: svg('<path d="M14.5 6.5a4 4 0 00-5.2 5.2L4 17l3 3 5.3-5.3a4 4 0 005.2-5.2l-2.4 2.4-2.6-.6-.6-2.6z"/>')
   };
   const COURSE_ICON = { heat: ICON.sun, hazcom: ICON.flask };
   const STATE_COLOR = { action: "c-red", soon: "c-orange", review: "c-blue", current: "c-green" };
@@ -417,6 +452,25 @@
           <div class="item-sub">${esc(st.text)}</div>
           ${fileLinks(d.id, "doc")}
           ${canUpload ? `<button class="btn ${primary ? "btn-primary" : ""}" data-action="upload-doc" data-id="${esc(d.id)}">${ICON.upload}${primary ? "Upload this first" : "Upload"}</button>` : ""}
+          ${st.key === "action" && (d.type_id === "heat_plan" || d.type_id === "safety_program") && S.packages.length
+            ? `<button class="btn-link" data-tab="packages">Don't have one? We can write it for you ›</button>` : ""}
+        </div>
+      </li>`;
+  }
+
+  function orderItem(o, staffForm) {
+    const p = pkg(o.package_id);
+    return `
+      <li class="item order" data-order="${esc(o.id)}">
+        <span class="sq-ico c-navy">${ICON.tools}</span>
+        <div class="item-body">
+          <div class="item-title">${esc(p.title)}</div>
+          ${orderPill(o.status)}
+          <div class="item-sub">${esc(orderPrice(o))} · ordered ${esc(fmtDate(o.created_at))}</div>
+          ${o.notes ? `<div class="item-sub">Notes: ${esc(o.notes)}</div>` : ""}
+          ${!staffForm ? `<div class="item-sub">${esc(o.staff_note || ORDER_STATUS[o.status][2])}</div>` : ""}
+          ${!staffForm && o.status === "requested" ? `<button class="btn btn-small" data-action="cancel-order" data-id="${esc(o.id)}">Cancel order</button>` : ""}
+          ${staffForm ? staffOrderForm(o) : ""}
         </div>
       </li>`;
   }
@@ -471,6 +525,7 @@
         <p class="section-label">What we need from you</p>
         <ul class="items needs">${needDocs.map((x, i) => docItem(x, i === 0)).join("")}${trainingItem}</ul>` : ""}
       <button class="btn btn-block btn-soft" data-action="upload-doc">Upload a different document</button>
+      ${homeOrdersCard(biz.id)}
       <div class="panel" style="margin-top: 16px;">
         <div class="doc-head">
           <h2>Latest from your NBW team</h2>
@@ -478,6 +533,59 @@
         </div>
         ${latest ? `<ul class="updates">${updateItem(latest)}</ul>` : `<p class="kicker">No updates yet. We'll post here when we check your documents.</p>`}
       </div>`;
+  }
+
+  function homeOrdersCard(businessId) {
+    if (!S.packages.length) return "";
+    const open = S.orders.filter(o => o.business_id === businessId && OPEN_ORDER.includes(o.status));
+    const featured = S.packages.filter(p => p.done_for_you && p.billing === "one_time").slice(0, 2);
+    return `
+      <div class="panel offer" style="margin-top: 16px;">
+        <h2>Heat & safety, done for you</h2>
+        <p class="kicker">We write your heat plan and safety program, train your crew and keep it current. Ordering here gets you the client price.</p>
+        ${open.length ? `<ul class="items orders" style="box-shadow: none; margin-top: 12px;">${open.map(o => orderItem(o, false)).join("")}</ul>` : `
+          <ul class="offer-list">${featured.map(p => `
+            <li><span>${esc(p.title)}</span><span class="price"><s>${money(p.price_cents)}</s> <strong>${money(p.client_price_cents)}</strong></span></li>`).join("")}
+          </ul>`}
+        <button class="btn btn-primary" data-tab="packages" style="margin-top: 12px;">See packages</button>
+      </div>`;
+  }
+
+  function viewPackages() {
+    const biz = S.business;
+    const crew = activeEmployees(biz.id).length;
+    const mine = S.orders.filter(o => o.business_id === biz.id);
+    const openFor = id => mine.find(o => o.package_id === id && OPEN_ORDER.includes(o.status));
+    const card = p => {
+      const quote = p.max_employees != null && crew > p.max_employees;
+      const open = openFor(p.id);
+      const terms = quote ? `Your crew list has ${crew} employees, so we'll quote this after a free check.`
+        : p.done_for_you && p.billing === "one_time" ? `50% to start (${money(Math.round(p.client_price_cents / 2))}), 50% at delivery.`
+        : p.billing === "monthly" ? "Billed monthly. We invoice you once we confirm." : "Paid in full. We invoice you once we confirm.";
+      return `
+        <li class="item package" data-package="${esc(p.id)}">
+          <span class="sq-ico ${p.done_for_you ? "c-navy" : "c-blue"}">${p.done_for_you ? ICON.tools : ICON.doc}</span>
+          <div class="item-body">
+            <div class="item-title">${esc(p.title)}</div>
+            <div class="item-sub">${esc(p.summary)}</div>
+            <div class="price">${quote ? "<strong>Quote</strong>" : `<s>${money(p.price_cents)}</s> <strong>${money(p.client_price_cents)}</strong> <span class="fine">${BILLING[p.billing]}</span>`}</div>
+            <div class="fine">${esc(terms)}</div>
+            ${open ? `<div class="row">${orderPill(open.status)}<span class="fine">You have this order open.</span></div>`
+              : `<button class="btn btn-primary" data-action="order-package" data-id="${esc(p.id)}">${quote ? "Request a quote" : "Order"}</button>`}
+          </div>
+        </li>`;
+    };
+    const dfy = S.packages.filter(p => p.done_for_you && p.active !== false);
+    const diy = S.packages.filter(p => !p.done_for_you && p.active !== false);
+    return `
+      <p><button class="btn-link" data-tab="home">‹ Home</button></p>
+      <h1>Heat & safety packages</h1>
+      <p class="lede">Order through your Business File and pay the client price, below our listed prices. No payment is taken here: we confirm your order and send you an invoice.</p>
+      ${mine.length ? `<p class="section-label">Your orders</p><ul class="items orders">${mine.slice().sort(byNewest).map(o => orderItem(o, false)).join("")}</ul>` : ""}
+      <p class="section-label">Done for you</p>
+      <ul class="items packages">${dfy.map(card).join("")}</ul>
+      ${diy.length ? `<p class="section-label">Do it yourself</p><ul class="items packages">${diy.map(card).join("")}</ul>` : ""}
+      <p class="fine" style="margin-top: 12px;">More locations or larger crews are quoted after your free check.</p>`;
   }
 
   function viewDocuments() {
@@ -625,13 +733,40 @@
   // ==========================================================================
   // VIEWS: NBW staff
   // ==========================================================================
+  function staffOrderForm(o) {
+    const dollars = c => (c == null ? "" : (c / 100).toFixed(2).replace(/\.00$/, ""));
+    return `
+      <form class="order-form stack" data-id="${esc(o.id)}" style="margin-top: 8px; width: 100%;">
+        <div class="row">
+          <label class="field" style="flex: 1 1 140px;">Status
+            <select name="status">
+              ${Object.keys(ORDER_STATUS).map(k => `<option value="${k}"${o.status === k ? " selected" : ""}>${ORDER_STATUS[k][1]}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field" style="flex: 1 1 100px;">Price ($)
+            <input type="number" name="price" min="0" step="0.01" inputmode="decimal" value="${esc(dollars(o.price_cents))}">
+          </label>
+          <label class="field" style="flex: 1 1 100px;">To start ($)
+            <input type="number" name="deposit" min="0" step="0.01" inputmode="decimal" value="${esc(dollars(o.deposit_cents))}">
+          </label>
+        </div>
+        <label class="field">Note to client
+          <input type="text" name="staff_note" maxlength="1000" value="${esc(o.staff_note || "")}" placeholder="Invoice sent to your email">
+        </label>
+        <div><button type="submit" class="btn btn-primary">Save order</button></div>
+      </form>`;
+  }
+
   function viewStaffClients() {
-    const rows = S.businesses.map(b => ({ b, s: summary(b.id) }))
-      .sort((x, y) => y.s.counts.review - x.s.counts.review || y.s.counts.action - x.s.counts.action || x.b.name.localeCompare(y.b.name));
+    const newOrders = id => S.orders.filter(o => o.business_id === id && o.status === "requested").length;
+    const rows = S.businesses.map(b => ({ b, s: summary(b.id), n: newOrders(b.id) }))
+      .sort((x, y) => (y.n + y.s.counts.review) - (x.n + x.s.counts.review) || y.s.counts.action - x.s.counts.action || x.b.name.localeCompare(y.b.name));
     const waiting = rows.reduce((n, r) => n + r.s.counts.review, 0);
+    const orders = rows.reduce((n, r) => n + r.n, 0);
+    const queue = [waiting ? `${plural(waiting, "document")} waiting for review` : "", orders ? `${plural(orders, "new order")} to confirm` : ""].filter(Boolean);
     return `
       <h1>Clients</h1>
-      <p class="lede">${waiting ? `${plural(waiting, "document")} waiting for review.` : "Nothing waiting for review."}</p>
+      <p class="lede">${queue.length ? queue.join(" · ") + "." : "Nothing waiting for review."}</p>
       ${rows.length ? `<ul class="items clients">${rows.map(({ b, s }) => `
         <li class="item">
           <span class="sq-ico c-navy">${ICON.folder}</span>
@@ -639,11 +774,12 @@
             <div class="item-title">${esc(b.name)}</div>
             <div class="item-sub">${esc(b.contact_name || "No contact name")} · ${plural(activeEmployees(b.id).length, "employee")}</div>
             <div class="row">
+              ${S.orders.some(o => o.business_id === b.id && o.status === "requested") ? `<span class="pill pill-warn">${plural(S.orders.filter(o => o.business_id === b.id && o.status === "requested").length, "new order")}</span>` : ""}
               ${s.counts.review ? `<span class="pill pill-info">${s.counts.review} to review</span>` : ""}
               ${s.counts.action ? `<span class="pill pill-err">${s.counts.action} action needed</span>` : ""}
               ${s.counts.soon ? `<span class="pill pill-warn">${s.counts.soon} renew soon</span>` : ""}
             </div>
-            <button class="btn ${s.counts.review ? "btn-primary" : ""}" data-action="open-client" data-id="${esc(b.id)}">Open file</button>
+            <button class="btn ${s.counts.review || S.orders.some(o => o.business_id === b.id && o.status === "requested") ? "btn-primary" : ""}" data-action="open-client" data-id="${esc(b.id)}">Open file</button>
           </div>
         </li>`).join("")}</ul>` : `<div class="panel"><p class="kicker">No clients yet.</p></div>`}`;
   }
@@ -654,6 +790,8 @@
     const { docs, training } = summary(b.id);
     const emps = activeEmployees(b.id);
     const updates = S.updates.filter(u => u.business_id === b.id).sort(byNewest);
+    const orders = S.orders.filter(o => o.business_id === b.id)
+      .sort((x, y) => (x.status === "requested" ? 0 : 1) - (y.status === "requested" ? 0 : 1) || byNewest(x, y));
     const statusLabels = { requested: "Requested", under_review: "Under review", current: "Current (checked)", rejected: "Can't accept" };
 
     const docCards = docs.map(({ d, st }) => `
@@ -690,6 +828,8 @@
       <h1>${esc(b.name)}</h1>
       <p class="kicker">${esc(b.contact_name || "No contact name")} · ${plural(emps.length, "employee")} · ${plural(training.list.length, "training item")} open</p>
       ${S.pageMsg ? `<div class="msg msg-err" role="alert" style="margin-top: 12px;">${esc(S.pageMsg)}</div>` : ""}
+
+      ${orders.length ? `<p class="section-label">Orders</p><ul class="items orders">${orders.map(o => orderItem(o, true)).join("")}</ul>` : ""}
 
       <p class="section-label">Documents</p>
       ${docCards || `<div class="panel"><p class="kicker">No documents yet.</p></div>`}
@@ -786,6 +926,32 @@
     };
   }
 
+  function orderSheet(packageId, error) {
+    const p = pkg(packageId);
+    const crew = activeEmployees(S.business.id).length;
+    const quote = p.max_employees != null && crew > p.max_employees;
+    const half = p.done_for_you && p.billing === "one_time";
+    return {
+      title: quote ? `Request a quote: ${p.title}` : `Order: ${p.title}`,
+      content: `
+        <form id="orderForm" class="stack" data-id="${esc(p.id)}">
+          ${error ? `<div class="msg msg-err" role="alert">${esc(error)}</div>` : ""}
+          <p class="kicker">${esc(p.summary)}</p>
+          ${quote ? `<div class="note">Your crew list has ${crew} employees. We'll set up a free check and send you a quote.</div>` : `
+            <dl class="summary-list">
+              <div><dt>Listed price</dt><dd><s>${money(p.price_cents)}</s></dd></div>
+              <div><dt>Your client price</dt><dd><strong>${money(p.client_price_cents)}</strong> ${BILLING[p.billing]}</dd></div>
+              ${half ? `<div><dt>To start</dt><dd>${money(Math.round(p.client_price_cents / 2))}</dd></div><div><dt>At delivery</dt><dd>${money(p.client_price_cents - Math.round(p.client_price_cents / 2))}</dd></div>` : ""}
+            </dl>`}
+          <label class="field">Anything we should know? (optional)
+            <textarea name="notes" maxlength="1000" rows="3" placeholder="Number of sites, crew languages, best time to reach you"></textarea>
+          </label>
+          <p class="fine">No payment now. NBW confirms your order and sends ${quote ? "a quote" : "an invoice"} to ${esc(S.session.user.email || "your email")}.</p>
+          <div><button type="submit" class="btn btn-primary">${quote ? "Request quote" : "Send order"}</button></div>
+        </form>`
+    };
+  }
+
   function infoSheet(title, text) {
     return { title, content: `<div class="msg msg-ok" role="status">${esc(text)}</div>` };
   }
@@ -832,7 +998,7 @@
     }
     if (!S.business) { app.innerHTML = viewSetup(); return; }
 
-    const views = { home: viewHome, documents: viewDocuments, training: viewTraining, employees: viewEmployees, updates: viewUpdates };
+    const views = { home: viewHome, documents: viewDocuments, training: viewTraining, employees: viewEmployees, updates: viewUpdates, packages: viewPackages };
     const s = summary(S.business.id);
     const tabs = [
       ["home", "Home", ICON.home, 0],
@@ -1108,9 +1274,49 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  async function placeOrder(form) {
+    const id = form.dataset.id;
+    const notes = String(new FormData(form).get("notes") || "").trim();
+    const { error } = await sb.rpc("order_package", { p_package_id: id, p_notes: notes || null });
+    if (error) return openSheet(orderSheet(id, errText(error)));
+    await reloadOrders();
+    const o = S.orders.find(x => x.package_id === id && x.status === "requested");
+    const p = pkg(id);
+    openSheet(infoSheet("Order sent", o && o.price_cents != null
+      ? `We'll confirm your ${p.title} order and email an invoice for ${money(o.deposit_cents)}. Nothing has been charged.`
+      : `We'll contact you to set up a free check and send a quote for ${p.title}.`));
+  }
+
+  async function cancelOrder(id) {
+    if (!confirm("Cancel this order?")) return;
+    const { error } = await sb.rpc("cancel_order", { p_order_id: id });
+    S.pageMsg = error ? errText(error) : null;
+    if (!error) await reloadOrders();
+    render();
+  }
+
   // ==========================================================================
   // ACTIONS: NBW staff
   // ==========================================================================
+  async function saveOrder(form) {
+    const id = form.dataset.id;
+    const data = new FormData(form);
+    const cents = v => (String(v || "").trim() === "" ? null : Math.round(parseFloat(v) * 100));
+    const changes = {
+      status: String(data.get("status")),
+      price_cents: cents(data.get("price")),
+      deposit_cents: cents(data.get("deposit")),
+      staff_note: String(data.get("staff_note") || "").trim() || null
+    };
+    if ([changes.price_cents, changes.deposit_cents].some(c => c != null && (isNaN(c) || c < 0))) {
+      S.pageMsg = "Enter prices as dollar amounts, like 1020 or 510.50.";
+      return render();
+    }
+    const { error } = await sb.from("orders").update(changes).eq("id", id);
+    S.pageMsg = error ? errText(error) : null;
+    if (!error) Object.assign(S.orders.find(o => o.id === id) || {}, changes);
+    render();
+  }
   async function saveReview(form) {
     const id = form.dataset.id;
     const data = new FormData(form);
@@ -1185,6 +1391,8 @@
       case "toggle-employee": toggleEmployee(id); break;
       case "launch-quiz": openSheet(quizSheet(act.dataset.course, act.dataset.employee)); break;
       case "upload-doc": openSheet(docUploadSheet(id || null)); break;
+      case "order-package": openSheet(orderSheet(id)); break;
+      case "cancel-order": cancelOrder(id); break;
       case "download-file": downloadFile(act.dataset.kind, id); break;
       case "delete-file": deleteTrainingFile(id); break;
       case "export-csv": exportCsv(); break;
@@ -1205,11 +1413,14 @@
     uploadForm: uploadTrainingFile,
     docUploadForm: uploadDocument,
     requestForm: requestDocument,
-    updateForm: postUpdate
+    updateForm: postUpdate,
+    orderForm: placeOrder
   };
   document.addEventListener("submit", e => {
     const form = e.target;
-    const handler = FORMS[form.id] || (form.classList.contains("review-form") ? saveReview : null);
+    const handler = FORMS[form.id]
+      || (form.classList.contains("review-form") ? saveReview : null)
+      || (form.classList.contains("order-form") ? saveOrder : null);
     if (!handler) return;
     e.preventDefault();
     busy(form, () => handler(form)).catch(err => {
