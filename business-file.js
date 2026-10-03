@@ -43,7 +43,7 @@ const ic=(k,cls="")=>`<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke
 const T={
  en:{demo:"Demo with an example client. Uploads stay in this browser tab and are not sent to anyone.",
   hi:n=>n?`Welcome back, ${n}`:"Welcome back", fileFor:b=>`Business File for ${b}`,
-  leadNeed:k=>k?`${k} item${k>1?"s":""} need${k>1?"":"s"} you. Everything else, we're watching.`:"Nothing needs you right now. We're watching your file.",
+  leadNeed:k=>k?`${k} item${k>1?"s":""} need${k>1?"":"s"} you. Everything else is on track.`:"Nothing needs you right now. Everything is on track.",
   tHome:"Home", tDocs:"Documents", tUpd:"Updates", tPlan:"My plan", menu:"Menu",
   need:"Action needed", soon:"Renew soon", review:"Under review", ok:"Current",
   todo:"What we need from you", upload:"Upload", uploadNew:"Upload new copy", uploadThis:"Upload this first",
@@ -88,6 +88,14 @@ const T={
   ord:{requested:"Requested",confirmed:"Confirmed",in_progress:"In progress",delivered:"Delivered",cancelled:"Cancelled"}, oSending:"Sending…", oFail:"That didn't send. Check your connection and try again.",
   oSheet:p=>`Order: ${p}`, oList:"Listed price", oYours:"Your price", oStart:"To start", oDelivery:"At delivery", oBilled:"Billed monthly", oNote:"Anything we should know? (optional)", oNotePh:"e.g. Two job sites, Spanish-speaking crew", oSend:"Send order",
   oFine:"No payment now. NBW confirms your order and emails you an invoice.", oDone:"Order sent. We'll confirm it and email your invoice.",
+  secReq:"Required", secCrew:"Crew training", secPkg:"Packages",
+  crewItem:"Crew training", crewItemM:(over,soon)=>[over?`${over} check${over>1?"s":""} overdue or missing`:"",soon?`${soon} due soon`:""].filter(Boolean).join(" · "), crewItemBtn:"Open crew training",
+  have:{ok:"On file",review:"With NBW for review",missing:"Not on file"}, trained:(a,b)=>`${a} of ${b} trained`,
+  tourTitle:"New here? Try these 3 things", tour1:"Upload the missing heat plan", tour2:"Take a crew knowledge check", tour3:"See Safety & Heat packages", tourHide:"Hide", bookCheck:"Book a free check", tourFine:"This is example data. Your real Business File works the same way.",
+  reqSum:(n,crew,heat)=>`With ${crew} employees${heat?" and heat on the job":""}, you need these ${n} things in place.`,
+  bestForYou:"Best fit for you", otherPkgs:"Other packages",
+  doTitle:"What to do", doReview:"Nothing to do. We're checking the copy you sent.", doRequested:"Upload a copy so we can add it to your file.",
+  doExpired:"Renew it with the agency that issued it, then upload the new copy here.", doSoon:"Renew it before it expires, then upload the new copy here.", doOk:"Nothing to do right now.",
   crewTitle:"Crew training", crewLead:"A knowledge check for each employee. Hand them the phone: they read the key points, answer and sign.", crewNone:"No employees yet. Add your crew to track their training.",
   addEmp:"Add employee", empName:"Full name", empJob:"Job title (optional)", empAdd:"Add employee", empNeedName:"Enter the employee's name.",
   archive:"Archive employee", archived:"Archived. Their training records stay on file.", tr:{ok:"Current",soon:"Due soon",over:"Overdue",none:"No record"},
@@ -97,8 +105,8 @@ const T={
   chkPassed:(n,c,d)=>`${n} passed ${c}. Due again ${d}. Keep a signed training record as well.`, chkFail:"That didn't save. Check your connection and try again.",
   homeSafe:"Health & safety, done for you", homeSafeM:"See what Nevada requires for your crew size, and have NBW write your plan.", homeSafeBtn:"See requirements"},
  es:{demo:"Demostración con un cliente de ejemplo. Los archivos se quedan en esta pestaña y no se envían a nadie.",
-  hi:n=>n?`Bienvenido, ${n}`:"Bienvenido", fileFor:b=>`Expediente de ${b}`,
-  leadNeed:k=>k?`${k} documento${k>1?"s":""} necesita${k>1?"n":""} su atención. Nosotros vigilamos todo lo demás.`:"Nada necesita su atención ahora. Estamos vigilando su expediente.",
+  hi:n=>n?`Hola, ${n}`:"Hola", fileFor:b=>`Expediente de ${b}`,
+  leadNeed:k=>k?`Tiene ${k} pendiente${k>1?"s":""}. Todo lo demás va bien.`:"No tiene pendientes. Todo va bien.",
   tHome:"Inicio", tDocs:"Documentos", tUpd:"Avisos", tPlan:"Mi plan", menu:"Menú",
   need:"Requiere acción", soon:"Renovar pronto", review:"En revisión", ok:"Al día",
   todo:"Lo que necesitamos de usted", upload:"Subir", uploadNew:"Subir copia nueva", uploadThis:"Subir esto primero",
@@ -143,6 +151,14 @@ const T={
   ord:{requested:"Solicitado",confirmed:"Confirmado",in_progress:"En proceso",delivered:"Entregado",cancelled:"Cancelado"}, oSending:"Enviando…", oFail:"No se envió. Revise su conexión e intente otra vez.",
   oSheet:p=>`Pedido: ${p}`, oList:"Precio de lista", oYours:"Su precio", oStart:"Para empezar", oDelivery:"Al entregar", oBilled:"Se cobra cada mes", oNote:"¿Algo que debamos saber? (opcional)", oNotePh:"p. ej. Dos obras, equipo que habla español", oSend:"Enviar pedido",
   oFine:"No se cobra nada ahora. NBW confirma su pedido y le envía la factura por correo.", oDone:"Pedido enviado. Lo confirmaremos y le enviaremos la factura.",
+  secReq:"Requisitos", secCrew:"Capacitación", secPkg:"Paquetes",
+  crewItem:"Capacitación del equipo", crewItemM:(over,soon)=>[over?`${over} prueba${over>1?"s":""} vencida${over>1?"s":""} o pendiente${over>1?"s":""}`:"",soon?`${soon} vence${soon>1?"n":""} pronto`:""].filter(Boolean).join(" · "), crewItemBtn:"Ver capacitación",
+  have:{ok:"En su expediente",review:"En revisión con NBW",missing:"No está en su expediente"}, trained:(a,b)=>`${a} de ${b} capacitados`,
+  tourTitle:"¿Es nuevo? Pruebe estas 3 cosas", tour1:"Subir el plan contra el calor que falta", tour2:"Hacer una prueba del equipo", tour3:"Ver paquetes de Seguridad y Calor", tourHide:"Ocultar", bookCheck:"Reservar una revisión gratis", tourFine:"Estos son datos de ejemplo. Su expediente real funciona igual.",
+  reqSum:(n,crew,heat)=>`Con ${crew} empleados${heat?" y calor en el trabajo":""}, necesita tener estas ${n} cosas en orden.`,
+  bestForYou:"Lo mejor para usted", otherPkgs:"Otros paquetes",
+  doTitle:"Qué hacer", doReview:"Nada por ahora. Estamos revisando la copia que envió.", doRequested:"Suba una copia para agregarla a su expediente.",
+  doExpired:"Renuévela con la agencia que la emitió y luego suba la copia nueva aquí.", doSoon:"Renuévela antes de que venza y luego suba la copia nueva aquí.", doOk:"Nada por ahora.",
   crewTitle:"Capacitación del equipo", crewLead:"Una prueba de conocimientos para cada empleado. Páseles el teléfono: leen los puntos clave, contestan y firman.", crewNone:"Aún no hay empleados. Agregue a su equipo para llevar su capacitación.",
   addEmp:"Agregar empleado", empName:"Nombre completo", empJob:"Puesto (opcional)", empAdd:"Agregar empleado", empNeedName:"Escriba el nombre del empleado.",
   archive:"Archivar empleado", archived:"Archivado. Sus registros de capacitación se conservan.", tr:{ok:"Al día",soon:"Vence pronto",over:"Vencida",none:"Sin registro"},
@@ -292,15 +308,40 @@ async function loadLive(){
 function liveFail(){Object.assign(S,{loading:false,broken:true}); render();}
 function viewStatus(msg){return `<main><div class="signin">${scheme==="night"?LOGO:LOGO_ON_LIGHT}<p class="lead">${msg}</p></div></main>`;}
 
+// Training checks that need attention, counted across the active crew
+function crewGaps(){
+  const g={over:0,soon:0}, emps=S.emps.filter(e=>e.active);
+  emps.forEach(e=>S.courses.forEach(c=>{const k=standing(e.id,c).k; if(k==="over"||k==="none") g.over++; else if(k==="soon") g.soon++;}));
+  return g;
+}
+// Shown only in the demo: three things to try, and a way to reach NBW
+const CONTACT_URL=window.NBW_CONTACT_URL||"contact.html";
+function viewTour(){
+  if(CONFIGURED||S.hideTour) return "";
+  const L=t(), heatDoc=S.docs.find(d=>d.cat==="safety"&&st(d)==="need");
+  return `<section class="panel tour"><div class="panel-h"><h2>${L.tourTitle}</h2><button class="link" data-hidetour>${L.tourHide}</button></div>
+    <ol class="steps" style="background:none;padding-top:0">
+      <li>${heatDoc?`<button class="link" data-up="${heatDoc.id}">${L.tour1}</button>`:L.tour1}</li>
+      <li><button class="link" data-tab="safe" data-go="crew">${L.tour2}</button></li>
+      <li><button class="link" data-tab="safe" data-go="pkg">${L.tour3}</button></li>
+    </ol>
+    <div style="padding:0 16px 16px;display:grid;gap:8px"><a class="btn btn-primary" href="${esc(CONTACT_URL)}" target="_blank" rel="noopener">${L.bookCheck}</a><p class="fine" style="padding:0">${L.tourFine}</p></div></section>`;
+}
 function viewHome(){
   const L=t(), c=counts(), todo=sorted().filter(d=>["need","soon"].includes(st(d))), u=S.updates[0], pid=urgentId();
+  const g=crewGaps(), crewRow=g.over||g.soon?`<li class="doc"><button class="doc-main" data-tab="safe" data-go="crew">
+      <span class="ico c-wc">${ic("people")}</span>
+      <span class="doc-text"><span class="n">${L.crewItem}</span>${pill(g.over?"need":"soon")}<span class="m">${esc(L.crewItemM(g.over,g.soon))}</span></span>
+      ${ic("chev","chev")}</button><div class="act"><button class="btn btn-line" data-tab="safe" data-go="crew">${L.crewItemBtn}</button></div></li>`:"";
+  const needCount=c.need+c.soon+(crewRow?1:0);
   return `<div class="stack">
-    <div><h1>${esc(L.hi(S.client.first))}</h1><div class="kicker">${esc(L.fileFor(S.client.biz))}</div><p class="lead">${L.leadNeed(c.need+c.soon)}</p></div>
+    <div><h1>${esc(L.hi(S.client.first))}</h1><div class="kicker">${esc(L.fileFor(S.client.biz))}</div><p class="lead">${L.leadNeed(needCount)}</p></div>
+    ${viewTour()}
     <div class="health">${["need","soon","review","ok"].map(k=>`<button class="tile" data-goto="${k}" style="--c:var(--t-${k})"><i>${ic(TI[k])}</i><b>${c[k]}</b><span>${L[k]}</span></button>`).join("")}</div>
-    <h2 class="section-h">${L.todo}</h2><section class="panel"><ul class="list">${todo.length?todo.map(d=>docRow(d,pid)).join(""):`<li class="empty">${L.leadNeed(0)}</li>`}</ul></section>
+    <h2 class="section-h">${L.todo}</h2><section class="panel"><ul class="list">${todo.length||crewRow?todo.map(d=>docRow(d,pid)).join("")+crewRow:`<li class="empty">${L.leadNeed(0)}</li>`}</ul></section>
     <button class="btn btn-${pid?"line":"primary"} btn-lg" data-up="">${pid?L.other:L.upTitle}</button>
     <section class="panel"><div class="note-card" style="padding-top:16px"><span class="ico c-safety">${ic("safe")}</span><div><h2>${L.homeSafe}</h2><p style="color:var(--muted)">${L.homeSafeM}</p>
-      <button class="btn btn-line" data-tab="safe" style="margin-top:10px">${L.homeSafeBtn}</button></div></div></section>
+      <button class="btn btn-line" data-tab="safe" data-go="req" style="margin-top:10px">${L.homeSafeBtn}</button></div></div></section>
     ${u?`<section class="panel"><div class="panel-h"><h2>${L.latest}</h2><button class="link link-more" data-tab="upd">${L.seeAll}${ic("chev")}</button></div>
       <div class="note-card">${TEAM_AVATAR}<div><small>${L.team} · ${fmt(u.at)}</small><p>${esc(u[lang])}</p></div></div></section>`:""}
   </div>`;
@@ -335,37 +376,72 @@ const OPEN=["requested","confirmed","in_progress"];
 // Best fit: the Heat Plan for 11-25 with heat exposure, the full program otherwise, the kit for small crews.
 const bestFit=()=>S.crew==="small"?"kit":S.crew==="mid"&&S.heat!=="no"?"heat":"full";
 
+// Three sections, so each fits on about one phone screen
 function viewSafe(){
+  const L=t(), sec=S.safeSec||"req";
+  const seg=(items,cur,attr)=>`<div class="seg" role="group">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`).join("")}</div>`;
+  const body=sec==="crew"?viewCrew():sec==="pkg"?viewPkgs():viewReqs();
+  return `<div class="stack"><div><h1>${L.safeTitle}</h1><div class="kicker">${esc(S.client.biz)}</div></div>
+    <div class="safe-nav">${seg([["req",L.secReq],["crew",L.secCrew],["pkg",L.secPkg]],sec,"data-safesec")}</div>
+    ${body}</div>`;
+}
+function viewReqs(){
   const L=t(), crew=S.crew, heat=S.heat, heatOn=heat!=="no";
   const seg=(items,cur,attr)=>`<div class="seg" role="group">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`).join("")}</div>`;
-  const item=(n,k,cite)=>`<li class="req"><span class="chk" aria-hidden="true">${n}</span><div><div class="n">${L[k]}</div><div class="m">${L[k+"m"]}</div><cite>${cite}</cite></div></li>`;
+  const item=(n,k,cite)=>{ const h=haveStatus(k);
+    return `<li class="req"><span class="chk" aria-hidden="true">${n}</span><div><div class="n">${L[k]}</div>${h?`<span class="pill ${h.cls}" style="margin-top:4px">${esc(h.text)}</span>`:""}<div class="m">${L[k+"m"]}</div><cite>${cite}</cite></div></li>`; };
   const reqs=[];
   if(crew!=="small"){ reqs.push(["r1","NRS 618.383"],["r2","NRS 618.383"],["r3","NRS 618.383"]); if(crew==="big") reqs.push(["r4","NRS 618.383"]); }
   if(heatOn) reqs.push(["r5","R131-24"], ...(crew!=="small"?[["r6","R131-24"]]:[]), ["r7","R131-24"], ["r8","R131-24"]);
-  const fit=bestFit(), list=PKGS.filter(p=>p.crews.includes(crew)&&(!p.heat||heatOn));
-  const disc=pct()>0;
-  const pkgRow=p=>{ const open=S.orders.find(o=>o.pkg===p.id&&OPEN.includes(o.status||"requested")), ordered=!!open;
-    return `<li class="pkg"><div class="n">${L[p.k]}${p.id===fit?`<span class="tag">${L.recommended}</span>`:""}</div>
-      <div class="price">${disc?`<s>${money(p.price)}</s>`:""}<b>${money(yourPrice(p))}</b><span>${p.monthly?L.perMonth:L.oneTime}</span></div>
-      ${ordered?`<span class="pill p-review">${L.ord[open.status||"requested"]}</span>`:`<button class="btn ${p.id===fit?"btn-primary":"btn-line"}" data-order="${p.id}">${L.order}</button>`}
-      <div class="m">${L[p.k+"M"]}</div></li>`; };
-  return `<div class="stack"><div><h1>${L.safeTitle}</h1><div class="kicker">${esc(S.client.biz)}</div><p class="lead">${L.safeLead}</p></div>
+  const crewLabel={small:L.crew1,mid:L.crew2,big:L.crew3}[crew];
+  return `<p class="lead" style="margin:0">${L.safeLead}</p>
     <div class="group"><span class="group-l" id="crew-q">${L.crewQ}</span>${seg([["small",L.crew1],["mid",L.crew2],["big",L.crew3]],crew,"data-crew")}<p class="fine" style="padding:0 4px">${L.crewHint}</p></div>
     <div class="group"><span class="group-l">${L.heatQ}</span>${seg([["yes",L.yes],["no",L.no],["unsure",L.notSure]],heat,"data-heat")}<p class="fine" style="padding:0 4px">${L.heatHint}</p></div>
     <h2 class="section-h">${L.reqTitle}</h2>
-    <section class="panel">${crew==="small"?`<div class="callout" style="margin:12px 16px${reqs.length?" 0":""}">${L.reqSmall}</div>`:""}
+    <section class="panel">${reqs.length?`<p class="req-sum">${L.reqSum(reqs.length,crewLabel,heatOn)}</p>`:""}
+      ${crew==="small"?`<div class="callout" style="margin:12px 16px${reqs.length?" 0":""}">${L.reqSmall}</div>`:""}
       ${reqs.length?`<ul class="reqs">${reqs.map(([k,c],i)=>item(i+1,k,c)).join("")}</ul>`:""}
       ${heat==="unsure"?`<div class="callout" style="margin:0 16px 12px">${L.heatUnsure}</div>`:""}</section>
-    <p class="fine">${L.reqFine}</p>
-    ${viewCrew()}
-    ${S.orders.length?`<h2 class="section-h">${L.ordTitle}</h2><section class="panel"><ul class="feed">${S.orders.map(o=>`<li><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><strong>${L[PKGS.find(p=>p.id===o.pkg).k]}</strong><span class="pill ${o.status==="delivered"||o.status==="confirmed"?"p-ok":o.status==="cancelled"?"p-soon":"p-review"}">${L.ord[o.status||"requested"]}</span></div><time>${fmt(o.at)} · ${esc(o.note||((o.status||"requested")==="requested"?L.ordReqM:""))}</time></li>`).join("")}</ul></section>`:""}
-    <h2 class="section-h">${L.pkgTitle}</h2>
-    <section class="panel"><p class="fine" style="padding-top:12px">${disc?L.pkgLead(esc(S.client.plan||"NBW"),pct()):L.pkgLeadNone}</p><ul class="list">${list.map(pkgRow).join("")}</ul></section>
-    <p class="fine">${L.bigCrew}</p></div>`;
+    <p class="fine">${L.reqFine}</p>`;
+}
+// Where the app already knows the answer, show whether this business has the
+// requirement covered. Others stay unmarked rather than guessed.
+function haveStatus(k){
+  const L=t();
+  const docState=re=>{ const d=S.docs.find(x=>x.cat==="safety"&&re.test(x.n+" "+(x.es||""))); if(!d) return "missing"; const s=st(d); return s==="review"?"review":s==="ok"||s==="soon"?"ok":"missing"; };
+  const mark=v=>({cls:v==="ok"?"p-ok":v==="review"?"p-review":"p-need",text:L.have[v]});
+  if(k==="r1") return mark(docState(/safety program|programa de seguridad/i));
+  if(k==="r5"||k==="r6") return mark(docState(/heat|calor/i));
+  if(k==="r8"){
+    const heat=S.courses.find(c=>c.id==="heat"), emps=S.emps.filter(e=>e.active);
+    if(!heat||!emps.length) return null;
+    const done=emps.filter(e=>["ok","soon"].includes(standing(e.id,heat).k)).length;
+    return {cls:done===emps.length?"p-ok":"p-soon",text:L.trained(done,emps.length)};
+  }
+  return null;
+}
+function viewPkgs(){
+  const L=t(), crew=S.crew, heatOn=S.heat!=="no", disc=pct()>0;
+  const fit=bestFit(), list=PKGS.filter(p=>p.crews.includes(crew)&&(!p.heat||heatOn));
+  const best=list.filter(p=>p.id===fit), others=list.filter(p=>p.id!==fit);
+  // Reads top to bottom: what it is, what it costs, then the button
+  const pkgRow=p=>{ const open=S.orders.find(o=>o.pkg===p.id&&OPEN.includes(o.status||"requested"));
+    return `<li class="pkg"><div class="n">${L[p.k]}</div>
+      <div class="m">${L[p.k+"M"]}</div>
+      <div class="price">${disc?`<s>${money(p.price)}</s>`:""}<b>${money(yourPrice(p))}</b><span>${p.monthly?L.perMonth:L.oneTime}</span></div>
+      ${open?`<span class="pill p-review">${L.ord[open.status||"requested"]}</span>`:`<button class="btn ${p.id===fit?"btn-primary":"btn-line"}" data-order="${p.id}">${L.order}</button>`}</li>`; };
+  return `${S.orders.length?`<h2 class="section-h">${L.ordTitle}</h2><section class="panel"><ul class="feed">${S.orders.map(o=>`<li><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><strong>${L[PKGS.find(p=>p.id===o.pkg).k]}</strong><span class="pill ${o.status==="delivered"||o.status==="confirmed"?"p-ok":o.status==="cancelled"?"p-soon":"p-review"}">${L.ord[o.status||"requested"]}</span></div><time>${fmt(o.at)} · ${esc(o.note||((o.status||"requested")==="requested"?L.ordReqM:""))}</time></li>`).join("")}</ul></section>`:""}
+    <p class="lead" style="margin:0">${disc?L.pkgLead(esc(S.client.plan||"NBW"),pct()):L.pkgLeadNone}</p>
+    ${best.length?`<h2 class="section-h">${L.bestForYou}</h2><section class="panel"><ul class="list">${best.map(pkgRow).join("")}</ul></section>`:""}
+    ${others.length?`<h2 class="section-h">${L.otherPkgs}</h2><section class="panel"><ul class="list">${others.map(pkgRow).join("")}</ul></section>`:""}
+    <p class="fine">${L.bigCrew}</p>`;
 }
 // Training standing comes from the latest signed check, never stored
 const addMonths=(s,m)=>{const [y,mo,d]=s.split("-").map(Number), x=new Date(y,mo-1+m,d); if(x.getDate()!==d) x.setDate(0); return iso(x);};
 const ctitle=c=>lang==="es"?c.title_es:c.title;
+// Short names keep the crew list scannable; full names are on each employee's page
+const SHORT={heat:{en:"Heat",es:"Calor"},hazcom:{en:"Chemicals",es:"Químicos"}};
+const cshort=c=>(SHORT[c.id]||{})[lang]||ctitle(c);
 function standing(empId,c){
   let last=null; S.atts.forEach(a=>{ if(a.emp===empId&&a.course===c.id&&(!last||a.on>last.on)) last=a; });
   if(!last) return {k:"none"};
@@ -375,12 +451,12 @@ function standing(empId,c){
 const TRP={ok:"p-ok",soon:"p-soon",over:"p-need",none:"p-need"};
 function viewCrew(){
   const L=t(), emps=S.emps.filter(e=>e.active);
-  return `<h2 class="section-h">${L.crewTitle}</h2>
-    <section class="panel"><p class="fine" style="padding-top:12px">${L.crewLead}</p>
+  return `<p class="lead" style="margin:0">${L.crewLead}</p>
+    <section class="panel">
     <ul class="list" id="crew">${emps.length?emps.map(e=>`<li class="doc"><button class="doc-main" data-emp="${esc(e.id)}">
         <span class="ico c-wc">${ic("people")}</span>
         <span class="doc-text"><span class="n">${esc(e.name)}</span>${e.job?`<span class="m">${esc(e.job)}</span>`:""}
-          <span style="display:flex;flex-wrap:wrap;gap:6px">${S.courses.map(c=>{const st=standing(e.id,c); return `<span class="pill ${TRP[st.k]}">${esc(ctitle(c))}: ${L.tr[st.k]}</span>`;}).join("")}</span></span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px">${S.courses.map(c=>{const st=standing(e.id,c); return `<span class="pill ${TRP[st.k]}">${esc(cshort(c))}: ${L.tr[st.k]}</span>`;}).join("")}</span></span>
         ${ic("chev","chev")}</button></li>`).join(""):`<li class="empty">${L.crewNone}</li>`}</ul>
     <div style="padding:4px 16px 16px"><button class="btn btn-line" data-addemp>${L.addEmp}</button></div></section>`;
 }
@@ -475,12 +551,19 @@ function sheetUpload(id){
    <div class="err" id="up-err" aria-live="polite"></div>
    <button class="btn btn-primary btn-lg" id="up-send" type="button">${L.upSend}</button>`;
 }
+function advice(d){
+  const L=t(), s=st(d);
+  if(s==="review") return L.doReview;
+  if(s==="ok") return L.doOk;
+  if(s==="soon") return L.doSoon;
+  return d.exp?L.doExpired:L.doRequested;
+}
 function sheetDetail(id){
   const L=t(), d=S.docs.find(x=>x.id===id), s=st(d);
   const ev=[...d.hist].sort((a,b)=>b.at.localeCompare(a.at)).map(h=>`<li>${L[h.k]}${h.file?`: ${esc(h.file)}`:""}${h.note?`<small>“${esc(h.note)}”</small>`:""}<small>${fmt(h.at)}</small></li>`).join("");
   return `<div class="sheet-h"><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="ico c-${d.cat}">${ic(d.cat)}</span><h2>${esc(dname(d))}</h2></div><button class="x" data-close aria-label="${L.close}">×</button></div>
    <dl class="facts"><dt>${L.status}</dt><dd>${pill(s)}</dd><dt>${L.category}</dt><dd>${L.cats[d.cat]}</dd><dt>${L.expires}</dt><dd>${d.exp?fmt(d.exp):"—"}</dd></dl>
-   <p class="fine">${esc(sub(d))}</p>
+   <div class="callout"><strong>${L.doTitle}:</strong> ${esc(advice(d))}</div>
    <h3 style="font-size:1rem">${L.hist}</h3><ul class="timeline">${ev||`<li>—</li>`}</ul>
    <button class="btn btn-primary btn-lg" data-up="${d.id}">${s==="need"||s==="soon"?L.upload:L.uploadNew}</button>`;
 }
@@ -557,7 +640,7 @@ async function sendLive(which,exp,note,err){
 document.addEventListener("focusin",e=>{ if(!sheet){ const b=e.target.closest("[data-up],[data-det],[data-order],#menu"); if(b) lastFocus=b.id==="menu"?"#menu":b.dataset.up!==undefined?`[data-up="${b.dataset.up}"]`:b.dataset.order!==undefined?`[data-order="${b.dataset.order}"]`:`[data-det="${b.dataset.det}"]`; }});
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s); let b;
-  if(b=g("[data-tab]")){tab=b.dataset.tab; sheet=null; render(); window.scrollTo(0,0); return;}
+  if(b=g("[data-tab]")){tab=b.dataset.tab; if(b.dataset.go) S.safeSec=b.dataset.go; sheet=null; render(); window.scrollTo(0,0); return;}
   if(b=g("[data-goto]")){tab="docs"; S.filter=b.dataset.goto; render(); return;}
   if(b=g("[data-f]")){S.filter=b.dataset.f; render(); return;}
   if(b=g("[data-up]")){sheet={type:"up",id:b.dataset.up}; pending=[]; render(); return;}
@@ -570,6 +653,8 @@ document.addEventListener("click",e=>{
   if(g("#signout")){sheet=null; if(LIVE){sb.auth.signOut(); return;} S.signedIn=false; render(); return;}
   if(g("[data-close]")||e.target.id==="scrim"){sheet=null; pending=[]; render(); return;}
   if(e.target.id==="si-demo"){S.signedIn=true; tab="home"; render(); return;}
+  if(b=g("[data-safesec]")){S.safeSec=b.dataset.safesec; render(); return;}
+  if(g("[data-hidetour]")){S.hideTour=true; render(); return;}
   if(b=g("[data-crew]")){S.crew=b.dataset.crew; render(); return;}
   if(b=g("[data-heat]")){S.heat=b.dataset.heat; render(); return;}
   if(b=g("[data-order]")){sheet={type:"order",id:b.dataset.order}; render(); return;}
