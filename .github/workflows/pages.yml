@@ -17,8 +17,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # GitHub adds a branch rule to the default "github-pages" environment that
+    # kept refusing main. A separately named environment has no such rule.
     environment:
-      name: github-pages
+      name: site
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
