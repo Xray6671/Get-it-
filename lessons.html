@@ -65,8 +65,8 @@ label.opt:has(input:focus-visible),label.yn:has(input:focus-visible){outline:2px
 .fb.bad{background:var(--red-bg);color:var(--red)}
 .qres{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-top:16px}
 .ie-result{border-left:4px solid var(--line)}
-.ie-result.tier-green{background:#eaf3e8;border-left-color:#2c5a2a}
-.ie-result.tier-yellow{background:#fff3cd;border-left-color:var(--gold-dk)}
+.ie-result.tier-green{background:rgba(47,158,90,.14);border-left-color:#4cc27a}
+.ie-result.tier-yellow{background:rgba(201,164,104,.14);border-left-color:var(--gold)}
 .ie-result.tier-red{background:var(--red-bg);border-left-color:var(--red)}
 .ie-result.tier-gray{background:var(--bg);border-left-color:var(--muted)}
 .qres h4{margin-top:0}
@@ -76,13 +76,13 @@ label.opt:has(input:focus-visible),label.yn:has(input:focus-visible){outline:2px
 .checks li:last-child{border-bottom:none}
 label.chk{display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:.93rem;color:var(--ink)}
 label.chk input{margin-top:4px;accent-color:var(--gold-dk)}
-p.count{color:var(--gold-dk);font-weight:700;font-size:.82rem;margin:0 0 8px}
+p.count{color:var(--gold-lt);font-weight:700;font-size:.82rem;margin:0 0 8px}
 .lesson-group-h{font-size:1.05rem;color:var(--gold-lt);margin:36px 0 14px;font-family:var(--sans);font-weight:800}
 .lesson-group-h:first-of-type{margin-top:0}
 .lesson-list{max-width:none}
 .lesson-item summary{align-items:baseline}
 .lesson-item summary span{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
-.lesson-num{color:var(--gold-dk);font-family:var(--serif);font-style:italic;font-weight:700;font-size:.92rem}
+.lesson-num{color:var(--gold-lt);font-family:var(--serif);font-style:italic;font-weight:700;font-size:.92rem}
 .lesson-mins{margin-left:auto;color:var(--muted);font-weight:600;font-size:.78rem;text-transform:none}
 .lesson-body{max-width:70ch}
 .lesson-body h3{font-size:1.15rem;margin-top:26px}
@@ -90,8 +90,8 @@ p.count{color:var(--gold-dk);font-weight:700;font-size:.82rem;margin:0 0 8px}
 .lesson-body h3:first-child,.lesson-body h4:first-child{margin-top:0}
 .lesson-body p,.lesson-body li{color:var(--ink);font-size:.95rem}
 .lesson-body ul,.lesson-body ol{padding-left:22px}
-.lesson-body p.lmeta{color:var(--gold-dk);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px}
-.lesson-body .callout{background:#fff3cd;border:1px solid #f0d38a;border-radius:10px;padding:14px 16px;color:#7a5b00;font-size:.88rem}
+.lesson-body p.lmeta{color:var(--gold-lt);font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:14px}
+.lesson-body .callout{background:rgba(201,164,104,.12);border:1px solid var(--gold);border-radius:10px;padding:14px 16px;color:var(--ink);font-size:.88rem}
 .lesson-body .disclaimer{background:var(--bg);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:14px 16px;font-size:.88rem;color:var(--muted)}
 .lesson-body .tblwrap{overflow-x:auto;margin:14px 0}
 .lesson-body table{width:100%;border-collapse:collapse;font-size:.88rem}
@@ -116,7 +116,7 @@ p.count{color:var(--gold-dk);font-weight:700;font-size:.82rem;margin:0 0 8px}
 .jumpnav-panel{max-height:0;opacity:0;overflow:hidden;visibility:hidden;transition:max-height .3s ease,opacity .2s ease;background:var(--bg);border-bottom:1px solid var(--line)}
 .jumpnav-panel.open{max-height:min(72vh,620px);opacity:1;visibility:visible;overflow-y:auto}
 .jumpnav-panel .wrap{padding:18px 24px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px 24px}
-.jumpnav-group h4{font:800 .72rem var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--gold-dk);margin:0 0 8px}
+.jumpnav-group h4{font:800 .72rem var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--gold-lt);margin:0 0 8px}
 .jumpnav-group ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .jumpnav-group a{display:block;padding:7px 10px;margin:0 -10px;border-radius:8px;font-size:.9rem;font-weight:600;color:var(--ink);text-decoration:none}
 .jumpnav-group a:hover,.jumpnav-group a:focus-visible{background:var(--surface);color:var(--gold-lt)}
@@ -130,7 +130,7 @@ html{scroll-behavior:smooth}
 .router-grid{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .router-item{display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 18px;text-decoration:none;color:var(--ink);font-weight:600;font-size:.96rem}
 .router-item:hover{border-color:var(--gold);background:var(--surface)}
-.router-item .arrow{color:var(--gold-dk);font-weight:800;flex:none}
+.router-item .arrow{color:var(--gold-lt);font-weight:800;flex:none}
 .progress{background:var(--bg);border-bottom:1px solid var(--line)}
 .progress .wrap{max-width:640px}
 .progress-panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 30px}
@@ -139,7 +139,7 @@ html{scroll-behavior:smooth}
 .progress-list{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .progress-list li{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line)}
 .progress-list li:last-child{border-bottom:none}
-.progress-num{flex:none;font:700 1.15rem var(--serif);color:var(--gold-dk);width:24px;text-align:center}
+.progress-num{flex:none;font:700 1.15rem var(--serif);color:var(--gold-lt);width:24px;text-align:center}
 .progress-name{flex:1;font-weight:600;font-size:.92rem}
 .progress-name a{text-decoration:none;color:var(--ink)}
 .progress-name a:hover{color:var(--gold-lt)}
@@ -159,22 +159,22 @@ ul.lchecklist input{margin-top:3px;accent-color:var(--gold-dk);width:16px;height
 ul.dockeep{list-style:none;margin:0 0 16px;padding:0}
 ul.dockeep li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:.93rem;color:var(--ink)}
 .quickcheck{background:var(--bg);border-radius:12px;padding:16px 18px;margin:18px 0 4px}
-.quickcheck p.qc-q{font:800 .78rem var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-dk);margin:0 0 8px}
+.quickcheck p.qc-q{font:800 .78rem var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-lt);margin:0 0 8px}
 .quickcheck p{color:var(--ink);font-size:.94rem;margin:0 0 12px}
 .qc-buttons{display:flex;gap:10px;flex-wrap:wrap}
 .qc-btn{border:2px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 20px;font:700 .82rem var(--sans);cursor:pointer;color:var(--gold-lt)}
 .qc-btn:hover{border-color:var(--gold)}
 .qc-btn.picked{background:var(--blue);border-color:var(--gold-lt);color:#fff}
-.qc-done{color:#2c5a2a!important;font-weight:700;font-size:.82rem;margin:10px 0 0!important}
+.qc-done{color:#8fd9a8!important;font-weight:700;font-size:.82rem;margin:10px 0 0!important}
 .mon-sample{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-top:14px}
-.mon-kicker{font:800 .72rem var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-dk);margin:0 0 10px!important}
+.mon-kicker{font:800 .72rem var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-lt);margin:0 0 10px!important}
 .mon-tiers{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
 .mon-tier{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);font:700 .78rem var(--sans);color:var(--ink);opacity:.5}
 .mon-tier.is-active{opacity:1;font-weight:800}
-.mon-tier[data-tier="current"].is-active{background:#e8f5ec;border-color:#2f9e5a}
-.mon-tier[data-tier="attention"].is-active{background:#faf1e2;border-color:var(--gold-dk)}
-.mon-tier[data-tier="missing"].is-active{background:#fbece8;border-color:var(--red)}
-.mon-tier[data-tier="notreviewed"].is-active{background:#f0efec;border-color:#9a9488}
+.mon-tier[data-tier="current"].is-active{background:rgba(47,158,90,.2);border-color:#4cc27a}
+.mon-tier[data-tier="attention"].is-active{background:rgba(201,164,104,.2);border-color:var(--gold)}
+.mon-tier[data-tier="missing"].is-active{background:rgba(226,137,124,.2);border-color:#e2897c}
+.mon-tier[data-tier="notreviewed"].is-active{background:rgba(168,176,196,.18);border-color:var(--muted)}
 .mon-note{color:var(--muted);font-size:.88rem;margin:0 0 12px!important}
 .btn-sm{min-height:auto;padding:9px 18px;font-size:.85rem;border-radius:8px}
 .expand-toggle-row{display:flex;justify-content:center;margin:16px 0 0}
@@ -194,7 +194,7 @@ ul.dockeep li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-siz
 .enforce-step .estep-num{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#f4ead2;color:var(--blue);font:800 .85rem var(--sans);margin-bottom:10px}
 .enforce-step h5{margin:0 0 6px;font-size:1rem;color:var(--gold-lt);font-family:var(--sans)}
 .enforce-step p{margin:0;color:var(--muted);font-size:.92rem}
-.estep-arrow{text-align:center;color:var(--gold-dk);font-size:1.3rem;font-weight:800;margin:4px 0}
+.estep-arrow{text-align:center;color:var(--gold-lt);font-size:1.3rem;font-weight:800;margin:4px 0}
 .srcnote{font-size:.72rem;color:var(--muted);white-space:nowrap}
 .ts-btn{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-family:var(--sans);font-weight:800;line-height:1;padding:4px 7px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s cubic-bezier(.2,0,0,1),border-color .15s cubic-bezier(.2,0,0,1),transform .1s cubic-bezier(.2,0,0,1)}
 .toplang-bar{background:var(--blue-dk,#12172c);color:#fff;text-align:center;padding:9px 14px;font:700 .82rem 'Inter',sans-serif;letter-spacing:.02em}
@@ -223,7 +223,7 @@ ul.dockeep li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-siz
 <!-- Analytics: add a real analytics script once a production domain is live (see the launch plan doc, Step 1). -->
 </head>
 
-<body><div class="toplang-bar"><div class="wrap"><a href="lessons.html" class="active" aria-current="true">English</a><span class="sep" aria-hidden="true">|</span><a href="lessons-es.html">Español</a><span class="ts-group" role="group" aria-label="Text size"><button type="button" class="ts-btn" id="tsDec" aria-label="Decrease text size">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Reset text size">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Increase text size">A+</button></span></div></div>
+<body><a class="skip-link" href="#main">Skip to content</a><div class="toplang-bar"><div class="wrap"><a href="lessons.html" class="active" aria-current="true">English</a><span class="sep" aria-hidden="true">|</span><a href="lessons-es.html">Español</a><span class="ts-group" role="group" aria-label="Text size"><button type="button" class="ts-btn" id="tsDec" aria-label="Decrease text size">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Reset text size">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Increase text size">A+</button></span></div></div>
 <header>
   <div class="wrap bar">
     <a class="brandmark brandmark-logo" href="index.html" aria-label="Nevada Business Watch">
@@ -240,6 +240,7 @@ ul.dockeep li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-siz
     <button type="button" class="menu-ic" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Open menu"><span></span><span></span><span></span></button>
   </div>
 </header>
+<main id="main">
 <div class="jumpnav" id="jumpNav">
   <div class="jumpnav-bar"><button type="button" class="jumpnav-btn" id="jumpNavToggle" aria-expanded="false" aria-controls="jumpNavPanel"><span>Jump to a lesson</span><svg class="car" width="12" height="8" viewBox="0 0 12 8" fill="none" aria-hidden="true"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
   <div class="jumpnav-panel" id="jumpNavPanel">
@@ -502,6 +503,7 @@ ul.dockeep li{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-siz
 </div>
 </section>
 
+</main>
 <footer>
   <div class="wrap">
     <div class="brandmark brandmark-logo">

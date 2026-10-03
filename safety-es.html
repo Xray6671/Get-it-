@@ -41,7 +41,6 @@
 .pcheck{list-style:none;margin:0 0 22px;padding:0;text-align:left;flex:1}
 .pullquote{background:var(--blue);color:#fff;text-align:center}
 .svc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 26px;display:flex;flex-direction:column;transition:transform .22s cubic-bezier(.2,0,0,1),box-shadow .22s cubic-bezier(.2,0,0,1)}
-.tier:not(.best):not(.tier.best){opacity:.8}
 .tier:not(.best) .tp{font-weight:600}
 /* ===== Which-plan-do-I-need interactive quiz ===== */
 .planquiz{max-width:720px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:34px 30px}
@@ -84,7 +83,7 @@
 <!-- Analytics: add a real analytics script once a production domain is live (see the launch plan doc, Step 1). -->
 </head>
 
-<body><div class="toplang-bar"><div class="wrap"><a href="safety.html">English</a><span class="sep" aria-hidden="true">|</span><a href="safety-es.html" class="active" aria-current="true">Español</a><span class="ts-group" role="group" aria-label="Tamaño de texto"><button type="button" class="ts-btn" id="tsDec" aria-label="Reducir tamaño de texto">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Restablecer tamaño de texto">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Aumentar tamaño de texto">A+</button></span></div></div>
+<body><a class="skip-link" href="#main">Saltar al contenido</a><div class="toplang-bar"><div class="wrap"><a href="safety.html">English</a><span class="sep" aria-hidden="true">|</span><a href="safety-es.html" class="active" aria-current="true">Español</a><span class="ts-group" role="group" aria-label="Tamaño de texto"><button type="button" class="ts-btn" id="tsDec" aria-label="Reducir tamaño de texto">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Restablecer tamaño de texto">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Aumentar tamaño de texto">A+</button></span></div></div>
 <header>
   <div class="wrap bar">
     <a class="brandmark brandmark-logo" href="index-es.html" aria-label="Nevada Business Watch">
@@ -101,6 +100,7 @@
     <button type="button" class="menu-ic" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Abrir menú"><span></span><span></span><span></span></button>
   </div>
 </header>
+<main id="main">
 
 <section id="safety-intro" class="problem">
   <div class="wrap">
@@ -234,6 +234,7 @@
   </div>
 </section>
 
+</main>
 <footer>
   <div class="wrap">
     <div class="brandmark brandmark-logo">

@@ -46,11 +46,10 @@
 .router-grid{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .router-item{display:flex;justify-content:space-between;align-items:center;gap:14px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:14px 18px;text-decoration:none;color:var(--ink);font-weight:600;font-size:.96rem}
 .router-item:hover{border-color:var(--gold);background:var(--surface)}
-.router-item .arrow{color:var(--gold-dk);font-weight:800;flex:none}
+.router-item .arrow{color:var(--gold-lt);font-weight:800;flex:none}
 .svc-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 26px;display:flex;flex-direction:column;scroll-margin-top:24px;transition:transform .22s cubic-bezier(.2,0,0,1),box-shadow .22s cubic-bezier(.2,0,0,1)}
 .svc-icon{width:54px;height:54px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;margin-bottom:16px;flex:none}
 .svc-icon svg{width:27px;height:27px;fill:none;stroke:var(--gold-lt);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.tier:not(.best):not(.tier.best){opacity:.8}
 .tier:not(.best) .tp{font-weight:600}
 /* ===== Which-plan-do-I-need interactive quiz ===== */
 .planquiz{max-width:720px;margin:0 auto;background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:34px 30px}
@@ -105,7 +104,7 @@
 <!-- Analytics: add a real analytics script once a production domain is live (see the launch plan doc, Step 1). -->
 </head>
 
-<body><div class="toplang-bar"><div class="wrap"><a href="services.html">English</a><span class="sep" aria-hidden="true">|</span><a href="services-es.html" class="active" aria-current="true">Español</a><span class="ts-group" role="group" aria-label="Tamaño de texto"><button type="button" class="ts-btn" id="tsDec" aria-label="Reducir tamaño de texto">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Restablecer tamaño de texto">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Aumentar tamaño de texto">A+</button></span></div></div>
+<body><a class="skip-link" href="#main">Saltar al contenido</a><div class="toplang-bar"><div class="wrap"><a href="services.html">English</a><span class="sep" aria-hidden="true">|</span><a href="services-es.html" class="active" aria-current="true">Español</a><span class="ts-group" role="group" aria-label="Tamaño de texto"><button type="button" class="ts-btn" id="tsDec" aria-label="Reducir tamaño de texto">A−</button><button type="button" class="ts-btn" id="tsReset" aria-label="Restablecer tamaño de texto">A</button><button type="button" class="ts-btn" id="tsInc" aria-label="Aumentar tamaño de texto">A+</button></span></div></div>
 <header>
   <div class="wrap bar">
     <a class="brandmark brandmark-logo" href="index-es.html" aria-label="Nevada Business Watch">
@@ -122,8 +121,9 @@
     <button type="button" class="menu-ic" id="navToggle" aria-expanded="false" aria-controls="siteNav" aria-label="Abrir menú"><span></span><span></span><span></span></button>
   </div>
 </header>
+<main id="main">
 
-<div class="wrap" style="padding-top:28px"><p style="font-size:.9rem;color:var(--muted)">Ir a: <a href="#services" style="color:var(--gold-dk);font-weight:600">Servicios</a> &middot; <a href="#precios" style="color:var(--gold-dk);font-weight:600">Precios</a> &middot; <a href="#lessons" style="color:var(--gold-dk);font-weight:600">Lecciones Gratuitas</a></p></div>
+<div class="wrap" style="padding-top:28px"><p style="font-size:.9rem;color:var(--muted)">Ir a: <a href="#services" style="color:var(--gold-lt);font-weight:600">Servicios</a> &middot; <a href="#precios" style="color:var(--gold-lt);font-weight:600">Precios</a> &middot; <a href="#lessons" style="color:var(--gold-lt);font-weight:600">Lecciones Gratuitas</a></p></div>
 <section id="services">
   <div class="wrap">
     <div class="head-c">
@@ -272,7 +272,7 @@
 <section id="filecontents" class="problem">
   <div class="wrap">
     <div class="head-c">
-      <p class="eyebrow">05 &mdash; Su Expediente de Negocio</p>
+      <p class="eyebrow">03 &mdash; Su Expediente de Negocio</p>
       <h2>Qué va en <span class="accent">su expediente</span></h2>
       <p class="lead">Cinco categorías. Todo en un solo lugar.</p>
     </div>
@@ -289,7 +289,7 @@
 <section id="status">
   <div class="wrap">
     <div class="head-c">
-      <p class="eyebrow">06 &mdash; Estado</p>
+      <p class="eyebrow">04 &mdash; Estado</p>
       <h2>Un expediente vivo <span class="accent">&mdash; no un archivero.</span></h2>
       <p class="lead">Su expediente de negocio se actualiza continuamente conforme cambian los documentos y la información.</p>
     </div>
@@ -306,10 +306,10 @@
 <section id="precios" class="precios">
   <div class="wrap">
     <div class="head-c">
-      <p class="eyebrow">10 &mdash; Precios</p>
+      <p class="eyebrow">05 &mdash; Precios</p>
       <h2>Planes y <span class="accent">precios</span></h2>
       <p class="lead">Cada servicio comienza con una revisión única. Los planes mensuales mantienen su expediente al día.</p>
-      <p style="margin-top:10px;font-size:.92rem"><a href="#services" style="color:var(--gold-dk);font-weight:700">Vea una muestra de informe para cada servicio &uarr;</a></p>
+      <p style="margin-top:10px;font-size:.92rem"><a href="#services" style="color:var(--gold-lt);font-weight:700">Vea una muestra de informe para cada servicio &uarr;</a></p>
     </div>
     <div class="svc-grid">
       <article class="plan-card">
@@ -386,6 +386,7 @@
     <a class="btn btn-primary" href="lessons-es.html">Ver las lecciones gratuitas</a> <a class="btn btn-outline" style="border-color:rgba(255,255,255,.5);color:#fff" href="contact-es.html#contact">Pregunte sobre ComplyCheck</a>
   </div>
 </section>
+</main>
 <footer>
   <div class="wrap">
     <div class="brandmark brandmark-logo">
