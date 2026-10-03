@@ -1,10 +1,12 @@
-// Compliance Hub: business owners track employee safety training.
-// Data lives in Supabase (see supabase/schema.sql); knowledge checks are graded
-// on the server, so this file never sees the answer key.
+// Business File: owners keep their licenses, insurance, written plans and crew
+// safety training in one place; NBW staff review documents, request new ones
+// and post updates. Data lives in Supabase (see supabase/schema.sql).
+// Knowledge checks are graded on the server, so this file never sees the
+// answer key, and only staff can mark a document current.
 (function () {
   "use strict";
 
-  const BUCKET = "training-files";
+  const BUCKET = "client-files";
   const DUE_SOON_DAYS = 30;
   const MAX_FILE_BYTES = 10 * 1024 * 1024;
   const FILE_TYPES = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg" };
@@ -24,6 +26,7 @@
       return u.protocol === "https:" || u.protocol === "http:" ? u.href : null;
     } catch (e) { return null; }
   }
+  function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
 
   // Calendar dates in Nevada time, as YYYY-MM-DD (matches the server's nv_today)
   const nvDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -40,7 +43,7 @@
   }
   const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   function fmtDate(dateStr) {
-    return dateStr ? shortDate.format(new Date(dateStr + "T00:00:00Z")) : "";
+    return dateStr ? shortDate.format(new Date(String(dateStr).slice(0, 10) + "T00:00:00Z")) : "";
   }
   function fmtSize(bytes) {
     const kb = Math.max(1, Math.round(bytes / 1024));
@@ -49,6 +52,7 @@
   function errText(error) {
     return (error && (error.message || error.error_description)) || "Something went wrong. Try again.";
   }
+  function byNewest(a, b) { return String(b.created_at).localeCompare(String(a.created_at)); }
 
   // ==========================================================================
   // STATE
@@ -60,12 +64,19 @@
     authEmail: "",        // kept so a failed attempt doesn't clear it
     loading: true,
     loadError: null,
-    business: null,
+    isStaff: false,
+    business: null,       // owner's business
+    businesses: [],       // staff: every client
+    clientId: null,       // staff: client being viewed
     employees: [],
     courses: [],
     questions: {},        // course_id -> [{ position, prompt, options }]
     attestations: [],
-    files: [],
+    files: [],            // training files
+    docTypes: [],
+    documents: [],
+    docFiles: [],
+    updates: [],
     tab: "home",
     showArchived: false,
     sheet: null,
@@ -81,9 +92,19 @@
   // ==========================================================================
   // DATA
   // ==========================================================================
+  async function fetchAll(queries) {
+    const keys = Object.keys(queries);
+    const results = await Promise.all(keys.map(k => queries[k]));
+    const failed = results.find(r => r.error);
+    if (failed) throw failed.error;
+    const out = {};
+    keys.forEach((k, i) => { out[k] = results[i].data; });
+    return out;
+  }
+
   async function loadAll() {
     if (!S.session) {
-      Object.assign(S, { loading: false, business: null, employees: [], attestations: [], files: [] });
+      Object.assign(S, { loading: false, isStaff: false, business: null, businesses: [], employees: [], attestations: [], files: [], documents: [], docFiles: [], updates: [] });
       render();
       return;
     }
@@ -91,38 +112,60 @@
     S.loadError = null;
     render();
 
-    const biz = await sb.from("businesses").select("*").maybeSingle();
-    if (biz.error) return loadFailed(biz.error);
-    S.business = biz.data;
+    try {
+      const staff = await sb.rpc("is_staff");
+      if (staff.error) throw staff.error;
+      S.isStaff = staff.data === true;
 
-    if (S.business) {
-      const [emp, crs, qs, att, fil] = await Promise.all([
-        sb.from("employees").select("*").order("full_name"),
-        sb.from("courses").select("*").order("sort"),
-        sb.from("course_questions").select("*").order("position"),
-        sb.from("attestations").select("*").order("completed_on", { ascending: false }),
-        sb.from("training_files").select("*").order("created_at", { ascending: false })
-      ]);
-      const failed = [emp, crs, qs, att, fil].find(r => r.error);
-      if (failed) return loadFailed(failed.error);
-      S.employees = emp.data;
-      S.courses = crs.data;
-      S.attestations = att.data;
-      S.files = fil.data;
-      S.questions = {};
-      qs.data.forEach(q => { (S.questions[q.course_id] = S.questions[q.course_id] || []).push(q); });
+      const shared = {
+        courses: sb.from("courses").select("*").order("sort"),
+        docTypes: sb.from("document_types").select("*").order("sort"),
+        employees: sb.from("employees").select("*").order("full_name"),
+        attestations: sb.from("attestations").select("*").order("completed_on", { ascending: false }),
+        documents: sb.from("documents").select("*").order("created_at", { ascending: false }),
+        docFiles: sb.from("document_files").select("*").order("created_at", { ascending: false }),
+        updates: sb.from("updates").select("*").order("created_at", { ascending: false })
+      };
+
+      if (S.isStaff) {
+        const d = await fetchAll(Object.assign({ businesses: sb.from("businesses").select("*").order("name") }, shared));
+        Object.assign(S, d);
+      } else {
+        const biz = await sb.from("businesses").select("*").maybeSingle();
+        if (biz.error) throw biz.error;
+        S.business = biz.data;
+        if (S.business) {
+          const d = await fetchAll(Object.assign({
+            questions: sb.from("course_questions").select("*").order("position"),
+            files: sb.from("training_files").select("*").order("created_at", { ascending: false })
+          }, shared));
+          const qs = d.questions;
+          delete d.questions;
+          Object.assign(S, d);
+          S.questions = {};
+          qs.forEach(q => { (S.questions[q.course_id] = S.questions[q.course_id] || []).push(q); });
+        }
+      }
+    } catch (error) {
+      S.loading = false;
+      S.loadError = errText(error);
+      return render();
     }
     S.loading = false;
     render();
   }
 
-  function loadFailed(error) {
-    S.loading = false;
-    S.loadError = errText(error);
-    render();
+  async function reloadDocuments() {
+    const d = await fetchAll({
+      documents: sb.from("documents").select("*").order("created_at", { ascending: false }),
+      docFiles: sb.from("document_files").select("*").order("created_at", { ascending: false })
+    });
+    Object.assign(S, d);
   }
 
-  function activeEmployees() { return S.employees.filter(e => e.active); }
+  function activeEmployees(businessId) {
+    return S.employees.filter(e => e.active && (!businessId || e.business_id === businessId));
+  }
   function employeeName(id) {
     const e = S.employees.find(x => x.id === id);
     return e ? e.full_name : "Unknown";
@@ -131,8 +174,15 @@
     const c = S.courses.find(x => x.id === id);
     return c ? c.title : id;
   }
+  function docType(id) {
+    return S.docTypes.find(t => t.id === id) || { id, title: id, icon: "doc" };
+  }
+  function docTitle(d) {
+    const t = docType(d.type_id).title;
+    return d.label ? `${t} · ${d.label}` : t;
+  }
 
-  // Status is always derived from the latest attestation, never stored
+  // Training status is always derived from the latest attestation, never stored
   function standing(employeeId, course) {
     let last = null;
     for (const a of S.attestations) {
@@ -144,40 +194,141 @@
     return { key: left < 0 ? "expired" : left <= DUE_SOON_DAYS ? "soon" : "valid", last, due };
   }
 
+  // Document standing: what the owner sees, from status plus expiry
+  function docState(d) {
+    if (d.status === "requested") return { key: "action", text: d.note || "We don't have a copy yet. Requested by NBW." };
+    if (d.status === "rejected") return { key: "action", text: d.note || "We couldn't accept the last copy. Please upload a new one." };
+    if (d.status === "under_review") return { key: "review", text: "We're checking it. Nothing to do right now." };
+    if (!d.expires_on) return { key: "current", text: "On file" };
+    const n = daysBetween(today(), d.expires_on);
+    if (n < 0) return { key: "action", text: `Expired ${fmtDate(d.expires_on)} · ${plural(-n, "day")} past due` };
+    if (n <= DUE_SOON_DAYS) return { key: "soon", text: `Expires ${fmtDate(d.expires_on)} · ${plural(n, "day")} left` };
+    return { key: "current", text: `Expires ${fmtDate(d.expires_on)}` };
+  }
+  const DOC_ORDER = { action: 0, soon: 1, review: 2, current: 3 };
+  function sortedDocs(businessId) {
+    return S.documents
+      .filter(d => d.business_id === businessId)
+      .map(d => ({ d, st: docState(d) }))
+      .sort((a, b) => DOC_ORDER[a.st.key] - DOC_ORDER[b.st.key]
+        || String(a.d.expires_on || "9999").localeCompare(String(b.d.expires_on || "9999"))
+        || docTitle(a.d).localeCompare(docTitle(b.d)));
+  }
+
+  // Every active employee x course pair that isn't current, worst first
+  function trainingGaps(businessId) {
+    const list = [];
+    const counts = { valid: 0, soon: 0, expired: 0, none: 0 };
+    S.courses.forEach(c => activeEmployees(businessId).forEach(e => {
+      const st = standing(e.id, c);
+      counts[st.key]++;
+      if (st.key !== "valid") list.push({ e, c, st });
+    }));
+    const order = { expired: 0, none: 1, soon: 2 };
+    list.sort((x, y) => order[x.st.key] - order[y.st.key] || (x.st.due || "").localeCompare(y.st.due || "") || x.e.full_name.localeCompare(y.e.full_name));
+    return { list, counts };
+  }
+
+  // Combined counts for a business: documents plus crew training items
+  function summary(businessId) {
+    const docs = sortedDocs(businessId);
+    const t = trainingGaps(businessId);
+    const c = { action: 0, soon: 0, review: 0, current: 0 };
+    docs.forEach(x => { c[x.st.key]++; });
+    const docAction = c.action;
+    c.action += t.counts.expired + t.counts.none;
+    c.soon += t.counts.soon;
+    c.current += t.counts.valid;
+    return { docs, training: t, counts: c, docAction };
+  }
+
+  // ==========================================================================
+  // ICONS & SMALL PIECES
+  // ==========================================================================
   const svg = body => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`;
   const ICON = {
     alert: svg('<path d="M12 7v6"/><path d="M12 17h.01"/>'),
     clock: svg('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'),
+    eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
     people: svg('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M16 4.5a3.5 3.5 0 010 7"/><path d="M18 14a6.5 6.5 0 013.5 6"/>'),
     check: svg('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
     sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
     flask: svg('<path d="M9 3h6"/><path d="M10 3v6l-5.5 9.5A1.7 1.7 0 006 21h12a1.7 1.7 0 001.5-2.5L14 9V3"/><path d="M7.5 15h9"/>'),
     doc: svg('<path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/>'),
+    id: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.4 1.7-2 3-2s2.4.6 3 2"/><path d="M14.5 10h4M14.5 14h3"/>'),
+    shield: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
+    hardhat: svg('<path d="M3 17h18v2H3z"/><path d="M5 17v-3a7 7 0 0114 0v3"/><path d="M10 7.5V5h4v2.5"/>'),
+    upload: svg('<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>'),
     home: svg('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h5v-6h4v6h5V10"/>'),
+    folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
     badge: svg('<path d="M12 3l2.4 1.8 3 .1.9 2.9 2.4 1.8-.9 2.9.9 2.9-2.4 1.8-.9 2.9-3 .1L12 21l-2.4-1.8-3-.1-.9-2.9-2.4-1.8.9-2.9-.9-2.9 2.4-1.8.9-2.9 3-.1z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
-    folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>')
+    chat: svg('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>')
   };
   const COURSE_ICON = { heat: ICON.sun, hazcom: ICON.flask };
-
-  function appbar(withSignOut) {
-    return `
-      <header class="appbar">
-        <div class="appbar-in">
-          <img src="assets/logo.jpg" alt="Nevada Business Watch" width="146" height="40">
-          ${withSignOut ? `<button class="btn-ghost" data-action="sign-out">Sign out</button>` : ""}
-        </div>
-      </header>`;
-  }
+  const STATE_COLOR = { action: "c-red", soon: "c-orange", review: "c-blue", current: "c-green" };
 
   const PILLS = {
+    // documents
+    action: ["pill-err", "Action needed"],
+    soon: ["pill-warn", "Renew soon"],
+    review: ["pill-info", "Under review"],
+    current: ["pill-ok", "Current"],
+    // training
     valid: ["pill-ok", "Current"],
-    soon: ["pill-warn", "Due soon"],
+    due: ["pill-warn", "Due soon"],
     expired: ["pill-err", "Overdue"],
     none: ["pill-err", "No record"]
   };
   function pill(key) {
     const [cls, text] = PILLS[key];
     return `<span class="pill ${cls}">${text}</span>`;
+  }
+  // Training "soon" shares its key with documents' "soon", but reads "Due soon"
+  function trainingPill(key) { return pill(key === "soon" ? "due" : key); }
+
+  function appbar(withSignOut) {
+    return `
+      <header class="appbar">
+        <div class="appbar-in">
+          <span class="row" style="gap: 10px;">
+            <img src="assets/logo.jpg" alt="Nevada Business Watch" width="146" height="40">
+            ${S.isStaff && S.session ? `<span class="staff-chip">Staff</span>` : ""}
+          </span>
+          ${withSignOut ? `<button class="btn-ghost" data-action="sign-out">Sign out</button>` : ""}
+        </div>
+      </header>`;
+  }
+
+  function tile(color, icon, n, label) {
+    return `
+      <div class="tile">
+        <span class="dot-ico ${color}">${icon}</span>
+        <strong>${n}</strong>
+        <span class="label">${label}</span>
+      </div>`;
+  }
+
+  function fileLinks(docId, kind) {
+    const files = S.docFiles.filter(f => f.document_id === docId).sort(byNewest);
+    if (!files.length) return "";
+    return `
+      <ul class="file-list">${files.map(f => `
+        <li>
+          <button class="btn-link" data-action="download-file" data-kind="${kind}" data-id="${esc(f.id)}">${esc(f.file_name)}</button>
+          <span class="fine">${esc(fmtSize(f.size_bytes))} · ${esc(fmtDate(f.created_at))}</span>
+        </li>`).join("")}
+      </ul>`;
+  }
+
+  function updateItem(u) {
+    return `
+      <li class="update">
+        <span class="avatar">${ICON.shield}</span>
+        <div>
+          <div class="fine" style="font-size: 0.88rem;">NBW Client Team · ${esc(fmtDate(u.created_at))}</div>
+          <p class="update-body">${esc(u.body)}</p>
+        </div>
+      </li>`;
   }
 
   // ==========================================================================
@@ -221,7 +372,7 @@
     return appbar(false) + `
       <div class="wrap"><div class="panel narrow">
         <h1 style="margin-bottom: 4px;">Your Business File</h1>
-        <p class="kicker" style="margin-bottom: 16px;">Safety training records for your crew</p>
+        <p class="kicker" style="margin-bottom: 16px;">Licenses, insurance and crew safety training, watched by NBW</p>
         <form id="authForm" class="stack">
           <h2>${titles[m]}</h2>
           ${authMsgHtml()}
@@ -236,12 +387,15 @@
   function viewSetup() {
     return appbar(true) + `
       <div class="wrap"><div class="panel narrow">
-        <h2>Set up your business</h2>
-        <p class="kicker" style="margin-bottom: 16px;">One business per login. You can add employees next.</p>
+        <h2>Set up your Business File</h2>
+        <p class="kicker" style="margin-bottom: 16px;">One business per login.</p>
         <form id="setupForm" class="stack">
           ${S.pageMsg ? `<div class="msg msg-err" role="alert">${esc(S.pageMsg)}</div>` : ""}
           <label class="field">Business name
             <input type="text" name="name" required maxlength="120" autocomplete="organization">
+          </label>
+          <label class="field">Your first name
+            <input type="text" name="contact_name" maxlength="60" autocomplete="given-name">
           </label>
           <button type="submit" class="btn btn-primary">Continue</button>
         </form>
@@ -249,97 +403,107 @@
   }
 
   // ==========================================================================
-  // VIEWS: signed in
+  // VIEWS: owner
   // ==========================================================================
-  // Every active employee x course pair that isn't current, worst first
-  function gaps() {
-    const out = [];
-    const counts = { valid: 0, soon: 0, expired: 0, none: 0 };
-    S.courses.forEach(c => activeEmployees().forEach(e => {
-      const st = standing(e.id, c);
-      counts[st.key]++;
-      if (st.key !== "valid") out.push({ e, c, st });
-    }));
-    const order = { expired: 0, none: 1, soon: 2 };
-    out.sort((x, y) => order[x.st.key] - order[y.st.key] || (x.st.due || "").localeCompare(y.st.due || "") || x.e.full_name.localeCompare(y.e.full_name));
-    return { list: out, counts };
-  }
-
-  function gapDetail(st) {
-    const t = today();
-    if (st.key === "none") return "No knowledge check on file yet";
-    const n = Math.abs(daysBetween(t, st.due));
-    if (st.key === "expired") return `Expired ${fmtDate(st.due)} · ${n} day${n === 1 ? "" : "s"} past due`;
-    return `Due ${fmtDate(st.due)} · ${n} day${n === 1 ? "" : "s"} left`;
+  function docItem({ d, st }, primary) {
+    const t = docType(d.type_id);
+    const canUpload = st.key !== "review";
+    return `
+      <li class="item">
+        <span class="sq-ico ${STATE_COLOR[st.key]}">${ICON[t.icon] || ICON.doc}</span>
+        <div class="item-body">
+          <div class="item-title">${esc(docTitle(d))}</div>
+          ${pill(st.key)}
+          <div class="item-sub">${esc(st.text)}</div>
+          ${fileLinks(d.id, "doc")}
+          ${canUpload ? `<button class="btn ${primary ? "btn-primary" : ""}" data-action="upload-doc" data-id="${esc(d.id)}">${ICON.upload}${primary ? "Upload this first" : "Upload"}</button>` : ""}
+        </div>
+      </li>`;
   }
 
   function viewHome() {
-    const emps = activeEmployees();
-    const welcome = `
-      <h1>${esc(S.business.name)}</h1>
-      <p class="kicker">Business File · ${esc(S.session.user.email || "")}</p>`;
+    const biz = S.business;
+    const { docs, training, counts } = summary(biz.id);
+    const needDocs = docs.filter(x => x.st.key === "action" || x.st.key === "soon");
+    const gapCount = training.list.length;
+    const needCount = counts.action + counts.soon;
+    const emps = activeEmployees(biz.id);
 
+    let trainingItem = "";
     if (!emps.length) {
-      return welcome + `
-        <p class="lede">Add your crew to start tracking their safety training.</p>
-        <div class="panel">
-          <h2>Get started</h2>
-          <p class="kicker">Add your employees first. Then record their knowledge checks and training files.</p>
-          <p style="margin-top: 14px;"><button class="btn btn-primary" data-tab="employees">Add employees</button></p>
-        </div>`;
+      trainingItem = `
+        <li class="item">
+          <span class="sq-ico c-navy">${ICON.people}</span>
+          <div class="item-body">
+            <div class="item-title">Crew safety training</div>
+            <div class="item-sub">Add your crew to track heat and hazard training.</div>
+            <button class="btn" data-tab="employees">Add your crew</button>
+          </div>
+        </li>`;
+    } else if (gapCount) {
+      const worst = training.counts.expired + training.counts.none ? "action" : "soon";
+      trainingItem = `
+        <li class="item">
+          <span class="sq-ico ${STATE_COLOR[worst]}">${ICON.badge}</span>
+          <div class="item-body">
+            <div class="item-title">Crew safety training</div>
+            ${pill(worst)}
+            <div class="item-sub">${plural(gapCount, "knowledge check")} to do across ${plural(emps.length, "employee")}</div>
+            <button class="btn ${needDocs.length ? "" : "btn-primary"}" data-tab="training">Open training</button>
+          </div>
+        </li>`;
     }
 
-    const { list, counts } = gaps();
-    const need = counts.expired + counts.none;
-    const total = list.length;
-    const tile = (color, icon, n, label) => `
-      <div class="tile">
-        <span class="dot-ico ${color}">${icon}</span>
-        <strong>${n}</strong>
-        <span class="label">${label}</span>
-      </div>`;
-    const color = { expired: "c-red", none: "c-red", soon: "c-orange" };
+    const latest = S.updates.filter(u => u.business_id === biz.id).sort(byNewest)[0];
+    const hello = biz.contact_name ? `Welcome back, ${esc(biz.contact_name)}` : "Welcome back";
 
-    const items = list.map(({ e, c, st }, i) => `
-      <li class="item">
-        <span class="sq-ico ${color[st.key]}">${COURSE_ICON[c.id] || ICON.doc}</span>
-        <div class="item-body">
-          <div class="item-title">${esc(e.full_name)} · ${esc(c.title)}</div>
-          ${pill(st.key)}
-          <div class="item-sub">${esc(gapDetail(st))}</div>
-          <button class="btn ${i === 0 ? "btn-primary" : ""}" data-action="launch-quiz" data-course="${esc(c.id)}" data-employee="${esc(e.id)}">${i === 0 ? "Do this first" : "Take check"}</button>
-        </div>
-      </li>`).join("");
-
-    const courses = S.courses.map(c => {
-      const current = emps.filter(e => standing(e.id, c).key === "valid").length;
-      return `
-        <div class="course-row">
-          <div class="doc-head">
-            <strong>${esc(c.title)}</strong>
-            <span class="course-count kicker">${current} of ${emps.length} current</span>
-          </div>
-          <div class="progress" role="img" aria-label="${current} of ${emps.length} current"><span style="width: ${Math.round(100 * current / emps.length)}%"></span></div>
-        </div>`;
-    }).join("");
-
-    return welcome + `
-      <p class="lede">${total ? `${total} item${total === 1 ? "" : "s"} need${total === 1 ? "s" : ""} you. Everything else is current.` : "Everyone is current. Nice work."}</p>
+    return `
+      <h1>${hello}</h1>
+      <p class="kicker">Business File for ${esc(biz.name)}</p>
+      <p class="lede">${needCount ? `${plural(needCount, "item")} need${needCount === 1 ? "s" : ""} you. Everything else, we're watching.` : "Nothing needs you right now. We're watching the rest."}</p>
       <div class="tiles">
-        ${tile("c-red", ICON.alert, need, "Action needed")}
+        ${tile("c-red", ICON.alert, counts.action, "Action needed")}
         ${tile("c-orange", ICON.clock, counts.soon, "Renew soon")}
-        ${tile("c-blue", ICON.people, emps.length, "Employees")}
-        ${tile("c-green", ICON.check, counts.valid, "Current")}
+        ${tile("c-blue", ICON.eye, counts.review, "Under review")}
+        ${tile("c-green", ICON.check, counts.current, "Current")}
       </div>
-      ${total ? `<p class="section-label">What needs you</p><ul class="items needs">${items}</ul>` : ""}
-      <p class="section-label">By training</p>
-      <div class="panel">${courses}</div>
-      <button class="btn btn-block" data-action="export-csv">Download records (CSV)</button>`;
+      ${needDocs.length || trainingItem ? `
+        <p class="section-label">What we need from you</p>
+        <ul class="items needs">${needDocs.map((x, i) => docItem(x, i === 0)).join("")}${trainingItem}</ul>` : ""}
+      <button class="btn btn-block btn-soft" data-action="upload-doc">Upload a different document</button>
+      <div class="panel" style="margin-top: 16px;">
+        <div class="doc-head">
+          <h2>Latest from your NBW team</h2>
+          <button class="btn-link" data-tab="updates">See all updates ›</button>
+        </div>
+        ${latest ? `<ul class="updates">${updateItem(latest)}</ul>` : `<p class="kicker">No updates yet. We'll post here when we check your documents.</p>`}
+      </div>`;
+  }
+
+  function viewDocuments() {
+    const docs = sortedDocs(S.business.id);
+    return `
+      <h1>Documents</h1>
+      <p class="lede">Everything NBW keeps on file for you. Upload a new copy whenever one renews.</p>
+      ${docs.length ? `<ul class="items docs">${docs.map(x => docItem(x, false)).join("")}</ul>`
+        : `<div class="panel"><p class="kicker">No documents yet. Start with your licenses and insurance certificates.</p></div>`}
+      <button class="btn btn-block btn-soft" style="margin-top: 16px;" data-action="upload-doc">Upload a different document</button>`;
+  }
+
+  function viewUpdates() {
+    const list = S.updates.filter(u => u.business_id === S.business.id).sort(byNewest);
+    return `
+      <h1>Updates</h1>
+      <p class="lede">Messages from your NBW team.</p>
+      <div class="panel">
+        ${list.length ? `<ul class="updates">${list.map(updateItem).join("")}</ul>` : `<p class="kicker">No updates yet.</p>`}
+      </div>`;
   }
 
   function viewEmployees() {
-    const list = S.employees.filter(e => S.showArchived || e.active);
-    const archivedCount = S.employees.length - activeEmployees().length;
+    const mine = S.employees.filter(e => e.business_id === S.business.id);
+    const list = mine.filter(e => S.showArchived || e.active);
+    const archivedCount = mine.filter(e => !e.active).length;
     return `
       <h1>Your crew</h1>
       <p class="lede">Add everyone who needs safety training.</p>
@@ -376,7 +540,7 @@
   }
 
   function viewTraining() {
-    const emps = activeEmployees();
+    const emps = activeEmployees(S.business.id);
     const cards = S.courses.map(c => {
       const src = safeUrl(c.source_url);
       return `
@@ -397,9 +561,9 @@
                 return `
                   <tr>
                     <td data-label="Employee">${esc(e.full_name)}</td>
-                    <td data-label="Status">${pill(st.key)}</td>
-                    <td data-label="Last">${esc(st.last || "—")}</td>
-                    <td data-label="Due">${esc(st.due || "—")}</td>
+                    <td data-label="Status">${trainingPill(st.key)}</td>
+                    <td data-label="Last">${esc(fmtDate(st.last) || "—")}</td>
+                    <td data-label="Due">${esc(fmtDate(st.due) || "—")}</td>
                     <td><button class="btn btn-small" data-action="launch-quiz" data-course="${esc(c.id)}" data-employee="${esc(e.id)}">Take check</button></td>
                   </tr>`;
               }).join("")}
@@ -411,16 +575,16 @@
     return `
       <h1>Safety training</h1>
       <p class="lede">Hand the phone to the employee for their knowledge check. Keep a signed training record for each session as well.</p>
-      ${cards}`;
+      ${cards}
+      ${viewTrainingFiles(emps)}
+      <button class="btn btn-block btn-soft" data-action="export-csv">Download training records (CSV)</button>`;
   }
 
-  function viewFiles() {
-    const emps = activeEmployees();
+  function viewTrainingFiles(emps) {
     return `
-      <h1>Training files</h1>
-      <p class="lede">Signed rosters and completion certificates. PDF, PNG or JPG, up to 10 MB. Only you can open them.</p>
       <div class="panel">
-        <h2>Upload a file</h2>
+        <h2>Training files</h2>
+        <p class="kicker">Signed rosters and completion certificates. PDF, PNG or JPG, up to 10 MB.</p>
         <form id="uploadForm" class="stack" style="margin-top: 12px;">
           ${S.pageMsg ? `<div class="msg msg-err" role="alert">${esc(S.pageMsg)}</div>` : ""}
           <div class="row">
@@ -437,7 +601,7 @@
             </label>
           </div>
           <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required>
-          <div><button type="submit" class="btn btn-primary">Upload</button></div>
+          <div><button type="submit" class="btn btn-primary">${ICON.upload}Upload</button></div>
         </form>
         ${S.files.length ? `
           <div class="table-wrap" style="margin-top: 16px;"><table>
@@ -447,14 +611,124 @@
                 <td data-label="File">${esc(f.file_name)} <span class="fine">${esc(fmtSize(f.size_bytes))}</span></td>
                 <td data-label="Training">${esc(courseTitle(f.course_id))}</td>
                 <td data-label="Covers">${f.employee_id ? esc(employeeName(f.employee_id)) : "Whole crew"}</td>
-                <td data-label="Added">${esc(String(f.created_at).slice(0, 10))}</td>
+                <td data-label="Added">${esc(fmtDate(f.created_at))}</td>
                 <td class="row">
-                  <button class="btn btn-small" data-action="download-file" data-id="${esc(f.id)}">Download</button>
+                  <button class="btn btn-small" data-action="download-file" data-kind="training" data-id="${esc(f.id)}">Download</button>
                   <button class="btn btn-small" data-action="delete-file" data-id="${esc(f.id)}">Delete</button>
                 </td>
               </tr>`).join("")}
             </tbody>
-          </table></div>` : `<p class="kicker" style="margin-top: 16px;">No files yet.</p>`}
+          </table></div>` : `<p class="kicker" style="margin-top: 16px;">No training files yet.</p>`}
+      </div>`;
+  }
+
+  // ==========================================================================
+  // VIEWS: NBW staff
+  // ==========================================================================
+  function viewStaffClients() {
+    const rows = S.businesses.map(b => ({ b, s: summary(b.id) }))
+      .sort((x, y) => y.s.counts.review - x.s.counts.review || y.s.counts.action - x.s.counts.action || x.b.name.localeCompare(y.b.name));
+    const waiting = rows.reduce((n, r) => n + r.s.counts.review, 0);
+    return `
+      <h1>Clients</h1>
+      <p class="lede">${waiting ? `${plural(waiting, "document")} waiting for review.` : "Nothing waiting for review."}</p>
+      ${rows.length ? `<ul class="items clients">${rows.map(({ b, s }) => `
+        <li class="item">
+          <span class="sq-ico c-navy">${ICON.folder}</span>
+          <div class="item-body">
+            <div class="item-title">${esc(b.name)}</div>
+            <div class="item-sub">${esc(b.contact_name || "No contact name")} · ${plural(activeEmployees(b.id).length, "employee")}</div>
+            <div class="row">
+              ${s.counts.review ? `<span class="pill pill-info">${s.counts.review} to review</span>` : ""}
+              ${s.counts.action ? `<span class="pill pill-err">${s.counts.action} action needed</span>` : ""}
+              ${s.counts.soon ? `<span class="pill pill-warn">${s.counts.soon} renew soon</span>` : ""}
+            </div>
+            <button class="btn ${s.counts.review ? "btn-primary" : ""}" data-action="open-client" data-id="${esc(b.id)}">Open file</button>
+          </div>
+        </li>`).join("")}</ul>` : `<div class="panel"><p class="kicker">No clients yet.</p></div>`}`;
+  }
+
+  function viewStaffClient() {
+    const b = S.businesses.find(x => x.id === S.clientId);
+    if (!b) { S.clientId = null; return viewStaffClients(); }
+    const { docs, training } = summary(b.id);
+    const emps = activeEmployees(b.id);
+    const updates = S.updates.filter(u => u.business_id === b.id).sort(byNewest);
+    const statusLabels = { requested: "Requested", under_review: "Under review", current: "Current (checked)", rejected: "Can't accept" };
+
+    const docCards = docs.map(({ d, st }) => `
+      <div class="panel review-card" data-doc="${esc(d.id)}">
+        <div class="doc-head" style="flex-wrap: nowrap; justify-content: flex-start;">
+          <span class="sq-ico ${STATE_COLOR[st.key]}">${ICON[docType(d.type_id).icon] || ICON.doc}</span>
+          <div class="item-body">
+            <div class="item-title">${esc(docTitle(d))}</div>
+            ${pill(st.key)}
+            <div class="item-sub">Client sees: ${esc(st.text)}</div>
+          </div>
+        </div>
+        ${fileLinks(d.id, "doc") || `<p class="fine" style="margin-top: 8px;">No files yet.</p>`}
+        <form class="review-form stack" data-id="${esc(d.id)}" style="margin-top: 12px;">
+          <div class="row">
+            <label class="field" style="flex: 1 1 160px;">Status
+              <select name="status">
+                ${Object.keys(statusLabels).map(k => `<option value="${k}"${d.status === k ? " selected" : ""}>${statusLabels[k]}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field" style="flex: 1 1 160px;">Expires
+              <input type="date" name="expires_on" value="${esc(d.expires_on || "")}">
+            </label>
+          </div>
+          <label class="field">Note to client (shown for requested or rejected)
+            <input type="text" name="note" maxlength="500" value="${esc(d.note || "")}">
+          </label>
+          <div><button type="submit" class="btn btn-primary">Save review</button></div>
+        </form>
+      </div>`).join("");
+
+    return `
+      <p><button class="btn-link" data-action="close-client">‹ All clients</button></p>
+      <h1>${esc(b.name)}</h1>
+      <p class="kicker">${esc(b.contact_name || "No contact name")} · ${plural(emps.length, "employee")} · ${plural(training.list.length, "training item")} open</p>
+      ${S.pageMsg ? `<div class="msg msg-err" role="alert" style="margin-top: 12px;">${esc(S.pageMsg)}</div>` : ""}
+
+      <p class="section-label">Documents</p>
+      ${docCards || `<div class="panel"><p class="kicker">No documents yet.</p></div>`}
+
+      <div class="panel">
+        <h2>Request a document</h2>
+        <form id="requestForm" class="stack" style="margin-top: 10px;">
+          <div class="row">
+            <label class="field" style="flex: 1 1 200px;">Document
+              <select name="type_id" required>
+                ${S.docTypes.map(t => `<option value="${esc(t.id)}">${esc(t.title)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field" style="flex: 1 1 160px;">Detail (optional)
+              <input type="text" name="label" maxlength="80" placeholder="C-15, North Las Vegas…">
+            </label>
+          </div>
+          <label class="field">Note to client
+            <input type="text" name="note" maxlength="500" value="We don't have a copy yet. Requested by NBW.">
+          </label>
+          <div><button type="submit" class="btn btn-primary">Send request</button></div>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Post an update</h2>
+        <form id="updateForm" class="stack" style="margin-top: 10px;">
+          <textarea name="body" required maxlength="2000" rows="3" placeholder="Got your North Las Vegas license. We're checking it against the city's records."></textarea>
+          <div><button type="submit" class="btn btn-primary">Post update</button></div>
+        </form>
+        ${updates.length ? `<ul class="updates" style="margin-top: 16px;">${updates.map(updateItem).join("")}</ul>` : ""}
+      </div>
+
+      <div class="panel">
+        <h2>Crew training</h2>
+        ${S.courses.map(c => {
+          const current = emps.filter(e => standing(e.id, c).key === "valid").length;
+          return `<div class="course-row"><div class="doc-head"><strong>${esc(c.title)}</strong><span class="kicker">${current} of ${emps.length} current</span></div></div>`;
+        }).join("")}
       </div>`;
   }
 
@@ -483,6 +757,35 @@
     };
   }
 
+  function docUploadSheet(docId, error, draft) {
+    const d = docId && S.documents.find(x => x.id === docId);
+    const v = draft || {};
+    return {
+      title: d ? `Upload: ${docTitle(d)}` : "Upload a document",
+      content: `
+        <form id="docUploadForm" class="stack" data-id="${esc(docId || "")}">
+          ${error ? `<div class="msg msg-err" role="alert">${esc(error)}</div>` : ""}
+          ${d ? "" : `
+            <label class="field">What is it?
+              <select name="type_id" required>
+                ${S.docTypes.map(t => `<option value="${esc(t.id)}"${v.type_id === t.id ? " selected" : ""}>${esc(t.title)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field">Detail (optional)
+              <input type="text" name="label" maxlength="80" placeholder="License class or city" value="${esc(v.label)}">
+            </label>`}
+          <label class="field">Expiration date, if it has one
+            <input type="date" name="expires_on" value="${esc(v.expires_on)}">
+          </label>
+          <label class="field">File (PDF, PNG or JPG, up to 10 MB)
+            <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required>
+          </label>
+          <p class="fine">NBW checks every document before it counts as current.</p>
+          <div><button type="submit" class="btn btn-primary">${ICON.upload}Send to NBW</button></div>
+        </form>`
+    };
+  }
+
   function infoSheet(title, text) {
     return { title, content: `<div class="msg msg-ok" role="status">${esc(text)}</div>` };
   }
@@ -492,12 +795,25 @@
   // ==========================================================================
   let lastFocus = null;
 
+  function sheetHtml() {
+    return S.sheet ? `
+      <div class="modal-overlay" data-action="overlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+          <div class="modal-header">
+            <h3 id="sheetTitle">${esc(S.sheet.title)}</h3>
+            <button class="btn" data-action="close-sheet" aria-label="Close">✕</button>
+          </div>
+          ${S.sheet.content}
+        </div>
+      </div>` : "";
+  }
+
   function render() {
     const app = document.getElementById("app");
 
     if (!sb) { app.innerHTML = viewNotConfigured(); return; }
+    document.body.classList.toggle("signed-out", !S.session || S.authMode === "recovery" || (!S.business && !S.isStaff));
     if (S.authMode === "recovery" || !S.session) { app.innerHTML = viewAuth(); return; }
-    document.body.classList.toggle("signed-out", !S.session || S.authMode === "recovery" || !S.business);
     if (S.loading) { app.innerHTML = appbar(false) + `<div class="wrap"><p class="kicker">Loading…</p></div>`; return; }
     if (S.loadError) {
       app.innerHTML = appbar(true) + `
@@ -509,11 +825,22 @@
         </div></div>`;
       return;
     }
+
+    if (S.isStaff) {
+      app.innerHTML = appbar(true) + `<main class="wrap">${S.clientId ? viewStaffClient() : viewStaffClients()}</main>` + sheetHtml();
+      return;
+    }
     if (!S.business) { app.innerHTML = viewSetup(); return; }
 
-    const views = { home: viewHome, employees: viewEmployees, training: viewTraining, files: viewFiles };
-    const need = gaps().list.length;
-    const tabs = [["home", "Home", ICON.home, 0], ["employees", "Crew", ICON.people, 0], ["training", "Training", ICON.badge, need], ["files", "Files", ICON.folder, 0]];
+    const views = { home: viewHome, documents: viewDocuments, training: viewTraining, employees: viewEmployees, updates: viewUpdates };
+    const s = summary(S.business.id);
+    const tabs = [
+      ["home", "Home", ICON.home, 0],
+      ["documents", "Documents", ICON.folder, s.docAction],
+      ["training", "Training", ICON.badge, s.training.list.length],
+      ["employees", "Crew", ICON.people, 0],
+      ["updates", "Updates", ICON.chat, 0]
+    ];
 
     app.innerHTML = appbar(true) + `
       <main class="wrap">${(views[S.tab] || viewHome)()}</main>
@@ -524,20 +851,10 @@
             ${n ? `<span class="badge" aria-label="${n} need attention">${n > 99 ? "99+" : n}</span>` : ""}
           </button>`).join("")}
       </div></nav>
-      ${S.sheet ? `
-        <div class="modal-overlay" data-action="overlay">
-          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-            <div class="modal-header">
-              <h3 id="sheetTitle">${esc(S.sheet.title)}</h3>
-              <button class="btn" data-action="close-sheet" aria-label="Close">✕</button>
-            </div>
-            ${S.sheet.content}
-          </div>
-        </div>` : ""}
-    `;
+      ${sheetHtml()}`;
 
     if (S.sheet) {
-      const target = app.querySelector(".modal input, .modal [data-action='close-sheet']");
+      const target = app.querySelector(".modal input, .modal select, .modal [data-action='close-sheet']");
       if (target) target.focus();
     }
   }
@@ -565,8 +882,23 @@
     try { await fn(); } finally { buttons.forEach(b => { b.disabled = false; }); }
   }
 
+  function checkFile(file) {
+    if (!file || !file.name || !file.size) return "Choose a file first.";
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!FILE_TYPES[ext]) return "Use a PDF, PNG or JPG file.";
+    if (file.size > MAX_FILE_BYTES) return "That file is over 10 MB.";
+    return null;
+  }
+  function storagePath(folder, file) {
+    const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-100);
+    return `${S.business.id}/${folder}/${crypto.randomUUID()}/${safeName}`;
+  }
+  function contentType(file) {
+    return FILE_TYPES[(file.name.split(".").pop() || "").toLowerCase()];
+  }
+
   // ==========================================================================
-  // ACTIONS
+  // ACTIONS: account
   // ==========================================================================
   async function submitAuth(form) {
     const data = new FormData(form);
@@ -599,13 +931,18 @@
   }
 
   async function createBusiness(form) {
-    const name = String(new FormData(form).get("name") || "").trim();
-    const { error } = await sb.from("businesses").insert({ name });
+    const data = new FormData(form);
+    const name = String(data.get("name") || "").trim();
+    const contact_name = String(data.get("contact_name") || "").trim() || null;
+    const { error } = await sb.from("businesses").insert({ name, contact_name });
     S.pageMsg = error ? errText(error) : null;
     if (error) return render();
     await loadAll();
   }
 
+  // ==========================================================================
+  // ACTIONS: owner
+  // ==========================================================================
   async function addEmployee(form) {
     const data = new FormData(form);
     const full_name = String(data.get("full_name") || "").trim();
@@ -652,25 +989,21 @@
 
     S.attestations.unshift({ employee_id: employeeId, course_id: courseId, completed_on: result.completed_on });
     openSheet(infoSheet("Check recorded",
-      `${employeeName(employeeId)} passed the ${courseTitle(courseId)} knowledge check on ${result.completed_on}. Due again ${result.due_on}. Keep a signed training record as well.`));
+      `${employeeName(employeeId)} passed the ${courseTitle(courseId)} knowledge check on ${fmtDate(result.completed_on)}. Due again ${fmtDate(result.due_on)}. Keep a signed training record as well.`));
   }
 
-  async function uploadFile(form) {
+  async function uploadTrainingFile(form) {
     const data = new FormData(form);
     const file = data.get("file");
     const course_id = String(data.get("course_id") || "");
     const employee_id = String(data.get("employee_id") || "") || null;
     const fail = text => { S.pageMsg = text; S.draft = { course_id, employee_id }; render(); };
 
-    if (!file || !file.name || !file.size) return fail("Choose a file first.");
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
-    if (!FILE_TYPES[ext]) return fail("Use a PDF, PNG or JPG file.");
-    if (file.size > MAX_FILE_BYTES) return fail("That file is over 10 MB.");
+    const bad = checkFile(file);
+    if (bad) return fail(bad);
+    const path = storagePath("training", file);
 
-    const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(-100);
-    const path = `${S.business.id}/${crypto.randomUUID()}/${safeName}`;
-
-    const up = await sb.storage.from(BUCKET).upload(path, file, { contentType: FILE_TYPES[ext], upsert: false });
+    const up = await sb.storage.from(BUCKET).upload(path, file, { contentType: contentType(file), upsert: false });
     if (up.error) return fail(errText(up.error));
 
     const { data: row, error } = await sb.from("training_files").insert({
@@ -688,8 +1021,42 @@
     render();
   }
 
-  async function downloadFile(id) {
-    const f = S.files.find(x => x.id === id);
+  async function uploadDocument(form) {
+    const docId = form.dataset.id || null;
+    const data = new FormData(form);
+    const file = data.get("file");
+    const draft = {
+      type_id: String(data.get("type_id") || ""),
+      label: String(data.get("label") || "").trim(),
+      expires_on: String(data.get("expires_on") || "")
+    };
+    const fail = text => openSheet(docUploadSheet(docId, text, draft));
+
+    const bad = checkFile(file);
+    if (bad) return fail(bad);
+    const path = storagePath("docs", file);
+
+    const up = await sb.storage.from(BUCKET).upload(path, file, { contentType: contentType(file), upsert: false });
+    if (up.error) return fail(errText(up.error));
+
+    const { error } = await sb.rpc("submit_document", {
+      p_document_id: docId,
+      p_type_id: docId ? null : draft.type_id,
+      p_label: docId ? null : draft.label,
+      p_expires_on: draft.expires_on || null,
+      p_storage_path: path,
+      p_file_name: file.name.slice(0, 200),
+      p_size_bytes: file.size
+    });
+    if (error) return fail(errText(error));
+
+    await reloadDocuments();
+    openSheet(infoSheet("Sent to NBW", `We got ${file.name}. We'll check it and update your file. It shows as under review until then.`));
+  }
+
+  async function downloadFile(kind, id) {
+    const list = kind === "doc" ? S.docFiles : S.files;
+    const f = list.find(x => x.id === id);
     if (!f) return;
     const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(f.storage_path, 60, { download: f.file_name });
     const url = !error && data && safeUrl(data.signedUrl);
@@ -697,7 +1064,7 @@
     location.href = url;
   }
 
-  async function deleteFile(id) {
+  async function deleteTrainingFile(id) {
     const f = S.files.find(x => x.id === id);
     if (!f || !confirm(`Delete ${f.file_name}? This can't be undone.`)) return;
     const st = await sb.storage.from(BUCKET).remove([f.storage_path]);
@@ -733,6 +1100,46 @@
   }
 
   // ==========================================================================
+  // ACTIONS: NBW staff
+  // ==========================================================================
+  async function saveReview(form) {
+    const id = form.dataset.id;
+    const data = new FormData(form);
+    const changes = {
+      status: String(data.get("status")),
+      expires_on: String(data.get("expires_on") || "") || null,
+      note: String(data.get("note") || "").trim() || null
+    };
+    const { error } = await sb.from("documents").update(changes).eq("id", id);
+    S.pageMsg = error ? errText(error) : null;
+    if (!error) Object.assign(S.documents.find(d => d.id === id) || {}, changes);
+    render();
+  }
+
+  async function requestDocument(form) {
+    const data = new FormData(form);
+    const { data: row, error } = await sb.from("documents").insert({
+      business_id: S.clientId,
+      type_id: String(data.get("type_id")),
+      label: String(data.get("label") || "").trim() || null,
+      status: "requested",
+      note: String(data.get("note") || "").trim() || null
+    }).select().single();
+    S.pageMsg = error ? errText(error) : null;
+    if (!error) S.documents.unshift(row);
+    render();
+  }
+
+  async function postUpdate(form) {
+    const body = String(new FormData(form).get("body") || "").trim();
+    if (!body) return;
+    const { data: row, error } = await sb.from("updates").insert({ business_id: S.clientId, body }).select().single();
+    S.pageMsg = error ? errText(error) : null;
+    if (!error) S.updates.unshift(row);
+    render();
+  }
+
+  // ==========================================================================
   // EVENTS
   // ==========================================================================
   document.addEventListener("click", e => {
@@ -742,6 +1149,7 @@
       S.pageMsg = null;
       S.draft = {};
       render();
+      scrollTo(0, 0);
       return;
     }
 
@@ -767,9 +1175,12 @@
       case "toggle-archived": S.showArchived = !S.showArchived; render(); break;
       case "toggle-employee": toggleEmployee(id); break;
       case "launch-quiz": openSheet(quizSheet(act.dataset.course, act.dataset.employee)); break;
-      case "download-file": downloadFile(id); break;
-      case "delete-file": deleteFile(id); break;
+      case "upload-doc": openSheet(docUploadSheet(id || null)); break;
+      case "download-file": downloadFile(act.dataset.kind, id); break;
+      case "delete-file": deleteTrainingFile(id); break;
       case "export-csv": exportCsv(); break;
+      case "open-client": S.clientId = id; S.pageMsg = null; render(); scrollTo(0, 0); break;
+      case "close-client": S.clientId = null; S.pageMsg = null; render(); break;
     }
   });
 
@@ -782,13 +1193,17 @@
     setupForm: createBusiness,
     employeeForm: addEmployee,
     quizForm: submitQuiz,
-    uploadForm: uploadFile
+    uploadForm: uploadTrainingFile,
+    docUploadForm: uploadDocument,
+    requestForm: requestDocument,
+    updateForm: postUpdate
   };
   document.addEventListener("submit", e => {
-    const handler = FORMS[e.target.id];
+    const form = e.target;
+    const handler = FORMS[form.id] || (form.classList.contains("review-form") ? saveReview : null);
     if (!handler) return;
     e.preventDefault();
-    busy(e.target, () => handler(e.target)).catch(err => {
+    busy(form, () => handler(form)).catch(err => {
       S.pageMsg = errText(err);
       S.authMsg = { kind: "err", text: errText(err) };
       render();
@@ -805,9 +1220,7 @@
     const userChanged = (session && session.user.id) !== (S.session && S.session.user.id);
     S.session = session;
     if (userChanged) {
-      S.tab = "home";
-      S.sheet = null;
-      S.pageMsg = null;
+      Object.assign(S, { tab: "home", sheet: null, pageMsg: null, clientId: null, isStaff: false });
       if (session) S.authMsg = null;
     }
     // Token refreshes for the same user must not re-render, or forms in

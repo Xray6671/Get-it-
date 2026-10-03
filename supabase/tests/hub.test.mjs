@@ -50,6 +50,28 @@ async function newPage({ config = fakeConfig } = {}) {
   return page;
 }
 
+// Helpers shared by both sessions
+async function signUpAndIn(page, email) {
+  await page.waitForSelector("#authForm");
+  await page.click("[data-auth-mode=signup]");
+  await page.fill("input[name=email]", email);
+  await page.fill("input[name=password]", "longpassword");
+  await page.click("#authForm button[type=submit]");
+  await page.waitForSelector(".msg-ok");
+  await page.fill("input[name=password]", "longpassword");
+  await page.click("#authForm button[type=submit]");
+}
+// Re-runs the app's data load, after seeding the fake database directly
+async function reloadData(page, email) {
+  await page.click("header [data-action=sign-out]");
+  await page.waitForSelector("#authForm");
+  await page.fill("input[name=email]", email);
+  await page.fill("input[name=password]", "longpassword");
+  await page.click("#authForm button[type=submit]");
+  await page.waitForSelector("main.wrap");
+}
+const daysFromNow = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+
 try {
   // ---- not configured ----
   {
@@ -62,32 +84,34 @@ try {
 
   const page = await newPage();
   const text = async sel => (await page.textContent(sel)) || "";
+  const OWNER = "owner@example.com";
 
   // ---- auth ----
   await page.waitForSelector("#authForm");
   await page.click("[data-auth-mode=signup]");
-  await page.fill("input[name=email]", "owner@example.com");
+  await page.fill("input[name=email]", OWNER);
   await page.fill("input[name=password]", "longpassword");
   await page.click("#authForm button[type=submit]");
   await page.waitForSelector(".msg-ok");
   ok((await text(".msg-ok")).includes("Check your email"), "sign-up asks for email confirmation");
 
-  await page.fill("input[name=email]", "owner@example.com");
   await page.fill("input[name=password]", "wrongpassword");
   await page.click("#authForm button[type=submit]");
   await page.waitForSelector(".msg-err");
   ok((await text(".msg-err")).includes("Invalid login"), "wrong password shows error");
+  ok((await page.inputValue("input[name=email]")) === OWNER, "email kept after failed sign-in");
 
-  ok((await page.inputValue("input[name=email]")) === "owner@example.com", "email kept after failed sign-in");
   await page.fill("input[name=password]", "longpassword");
   await page.click("#authForm button[type=submit]");
   await page.waitForSelector("#setupForm");
   ok(true, "sign-in leads to business setup");
 
   await page.fill("input[name=name]", "Desert Sun <b>Ops</b>");
+  await page.fill("input[name=contact_name]", "Marco");
   await page.click("#setupForm button[type=submit]");
-  await page.waitForSelector("text=Get started");
-  ok((await text("main h1")) === "Desert Sun <b>Ops</b>", "business name shown as plain text");
+  await page.waitForSelector("text=Welcome back, Marco");
+  ok((await text("main .kicker")) === "Business File for Desert Sun <b>Ops</b>", "business name shown as plain text");
+  ok((await text(".needs")).includes("Add your crew"), "new file prompts to add crew");
 
   // ---- employees ----
   await page.click("[data-tab=employees]");
@@ -139,52 +163,112 @@ try {
   ok((await page.$$("#quizForm fieldset")).length === 2, "hazcom check shows its own 2 questions");
   await page.click("[data-action=close-sheet]");
 
-  // ---- dashboard ----
-  await page.click("[data-tab=home]");
-  ok((await text(".course-row:has-text('Heat Illness') .course-count")).trim() === "1 of 3 current", "dashboard counts heat 1 of 3");
-  ok((await page.$$(".needs .item")).length === 5, "five gaps listed");
-  ok((await text(".tile:has-text('Action needed') strong")) === "5" && (await text(".tile:has-text('Current') strong")) === "1", "status tiles count gaps and current");
-  ok((await text(".tab[data-tab=training] .badge")) === "5", "training tab shows gap badge");
-  ok((await text(".needs .item:first-child .btn-primary")).includes("Do this first"), "first gap gets the primary button");
-
   const [csvDl] = await Promise.all([page.waitForEvent("download"), page.click("[data-action=export-csv]")]);
   const csv = readFileSync(await csvDl.path(), "utf8");
   ok(csv.includes(`"'=HYPERLINK(""http://evil"")"`), "CSV neutralizes formulas");
   ok(csv.split("\r\n").length === 7 && csv.includes('"Ana Lopez","Pool tech","Active","Heat Illness Prevention"'), "CSV has a row per employee and training");
 
-  // ---- files ----
-  await page.click("[data-tab=files]");
-  await page.selectOption("select[name=employee_id]", { label: "Ana Lopez" });
-  await page.setInputFiles("input[type=file]", { name: "virus.exe", mimeType: "application/octet-stream", buffer: Buffer.from("x") });
+  // ---- training files ----
+  await page.selectOption("#uploadForm select[name=employee_id]", { label: "Ana Lopez" });
+  await page.setInputFiles("#uploadForm input[type=file]", { name: "virus.exe", mimeType: "application/octet-stream", buffer: Buffer.from("x") });
   await page.click("#uploadForm button[type=submit]");
   await page.waitForSelector("#uploadForm .msg-err");
   ok((await text("#uploadForm .msg-err")).includes("PDF, PNG or JPG"), "wrong file type rejected");
-  ok((await page.$eval("select[name=employee_id]", s => s.selectedOptions[0].text)) === "Ana Lopez", "employee choice kept after error");
+  ok((await page.$eval("#uploadForm select[name=employee_id]", s => s.selectedOptions[0].text)) === "Ana Lopez", "employee choice kept after error");
 
-  await page.setInputFiles("input[type=file]", { name: "heat roster.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(3000, 1) });
+  await page.setInputFiles("#uploadForm input[type=file]", { name: "heat roster.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(3000, 1) });
   await page.click("#uploadForm button[type=submit]");
   await page.waitForSelector("tr:has-text('heat roster.pdf')");
-  const stored = await page.evaluate(() => Object.keys(window.__fake.storage));
   const bizId = await page.evaluate(() => window.__fake.db.businesses[0].id);
-  ok(stored.length === 1 && stored[0].startsWith(bizId + "/") && stored[0].endsWith("/heat_roster.pdf"), "file stored in business folder");
+  let stored = await page.evaluate(() => Object.keys(window.__fake.storage));
+  ok(stored.length === 1 && stored[0].startsWith(bizId + "/training/") && stored[0].endsWith("/heat_roster.pdf"), "training file stored in training folder");
   ok((await text("tr:has-text('heat roster.pdf')")).includes("Ana Lopez"), "file linked to employee");
 
-  const [fileDl] = await Promise.all([page.waitForEvent("download"), page.click("[data-action=download-file]")]);
+  const [fileDl] = await Promise.all([page.waitForEvent("download"), page.click("[data-action=download-file][data-kind=training]")]);
   ok(fileDl.url().startsWith("https://fake.supabase.co/signed/"), "download uses a signed link");
 
   await page.click("[data-action=delete-file]");
-  await page.waitForSelector("text=No files yet.");
+  await page.waitForSelector("text=No training files yet.");
   ok(page.dialogs.some(d => d.includes("Delete heat roster.pdf")) && (await page.evaluate(() => Object.keys(window.__fake.storage).length)) === 0, "delete confirms and removes stored file");
+
+  // ---- home with training only ----
+  await page.click("[data-tab=home]");
+  ok((await text(".needs")).includes("5 knowledge checks to do across 3 employees"), "home summarizes training gaps");
+  ok((await text(".tile:has-text('Action needed') strong")) === "5" && (await text(".tile:has-text('Current') strong")) === "1", "tiles count training");
+  ok((await text(".tab[data-tab=training] .badge")) === "5", "training tab shows gap badge");
+
+  // ---- documents from NBW ----
+  await page.evaluate(({ biz, expired, soon, far }) => {
+    const db = window.__fake.db;
+    const now = new Date().toISOString();
+    db.documents.push(
+      { id: "d-lic", business_id: biz, type_id: "nscb_license", label: "C-15", status: "current", expires_on: expired, note: null, created_at: now },
+      { id: "d-heat", business_id: biz, type_id: "heat_plan", label: null, status: "requested", expires_on: null, note: "We don't have a copy yet. Requested by NBW.", created_at: now },
+      { id: "d-gl", business_id: biz, type_id: "general_liability", label: null, status: "current", expires_on: soon, note: null, created_at: now },
+      { id: "d-wc", business_id: biz, type_id: "workers_comp", label: null, status: "current", expires_on: far, note: null, created_at: now },
+      { id: "d-other", business_id: "someone-else", type_id: "other", label: "Not mine", status: "requested", expires_on: null, note: null, created_at: now }
+    );
+    db.updates.push({ id: "u1", business_id: biz, body: "Got your <b>North Las Vegas</b> license.", created_at: now });
+  }, { biz: bizId, expired: daysFromNow(-6), soon: daysFromNow(19), far: daysFromNow(200) });
+  await reloadData(page, OWNER);
+
+  ok((await page.$$(".needs .item")).length === 4, "needs list: 3 documents + training");
+  ok((await text(".needs .item:first-child .item-title")) === "NSCB contractor license · C-15", "expired license listed first");
+  ok((await text(".needs .item:first-child .item-sub")).includes("6 days past due"), "expired license shows days past due");
+  ok((await text(".needs .item:first-child .btn-primary")).includes("Upload this first"), "most urgent item gets primary button");
+  ok((await text(".needs")).includes("19 days left") && !(await text(".needs")).includes("Workers"), "renew-soon shown, far-off renewal not");
+  ok(!(await text("main")).includes("Not mine"), "another business's document not shown");
+  ok((await text(".lede")).startsWith("8 items need you"), "lede counts everything that needs the owner");
+  ok((await text(".updates")).includes("Got your <b>North Las Vegas</b> license."), "latest update shown as plain text");
+  ok((await text(".tab[data-tab=documents] .badge")) === "2", "documents tab badge counts action items");
+
+  // upload to the requested heat plan
+  await page.click(".needs .item:has-text('heat illness prevention plan') [data-action=upload-doc]");
+  await page.waitForSelector("#docUploadForm");
+  ok(!(await page.$("#docUploadForm select[name=type_id]")), "existing document skips type picker");
+  await page.setInputFiles("#docUploadForm input[type=file]", { name: "Heat Plan 2026.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(5000, 1) });
+  await page.click("#docUploadForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  ok((await text(".modal .msg-ok")).includes("We'll check it"), "upload confirms it went to NBW");
+  await page.click("[data-action=close-sheet]");
+  ok((await text(".tile:has-text('Under review') strong")) === "1", "uploaded document now under review");
+  stored = await page.evaluate(() => Object.keys(window.__fake.storage));
+  ok(stored.some(p => p.startsWith(bizId + "/docs/")), "document stored in docs folder");
+
+  // upload a different document, with a bad file first
+  await page.click("button:has-text('Upload a different document')");
+  await page.selectOption("#docUploadForm select[name=type_id]", "general_liability");
+  await page.fill("#docUploadForm input[name=label]", "2027 renewal");
+  await page.fill("#docUploadForm input[name=expires_on]", daysFromNow(365));
+  await page.setInputFiles("#docUploadForm input[type=file]", { name: "cert.docx", mimeType: "application/msword", buffer: Buffer.from("x") });
+  await page.click("#docUploadForm button[type=submit]");
+  await page.waitForSelector("#docUploadForm .msg-err");
+  ok((await page.inputValue("#docUploadForm select[name=type_id]")) === "general_liability" && (await page.inputValue("#docUploadForm input[name=label]")) === "2027 renewal", "upload form keeps choices after error");
+  await page.setInputFiles("#docUploadForm input[type=file]", { name: "cert.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(800, 1) });
+  await page.click("#docUploadForm button[type=submit]");
+  await page.waitForSelector(".modal .msg-ok");
+  await page.click("[data-action=close-sheet]");
+
+  await page.click("[data-tab=documents]");
+  ok((await page.$$(".docs .item")).length === 5, "documents tab lists every document");
+  const newDoc = ".docs .item:has-text('2027 renewal')";
+  ok((await text(newDoc)).includes("Under review") && !(await page.$(`${newDoc} [data-action=upload-doc]`)), "new document under review, no upload button");
+  ok((await text(newDoc)).includes("cert.pdf"), "uploaded file listed on the document");
+  const [docDl] = await Promise.all([page.waitForEvent("download"), page.click(`${newDoc} [data-action=download-file]`)]);
+  ok(docDl.url().includes(encodeURIComponent(bizId + "/docs/")), "owner can download a document file");
+
+  await page.click("[data-tab=updates]");
+  ok((await page.$$(".updates .update")).length === 1, "updates tab lists team messages");
 
   // ---- token refresh keeps forms intact ----
   await page.click("[data-tab=employees]");
   await page.fill("#employeeForm input[name=full_name]", "Typing in progress");
   await page.evaluate(() => window.__fakeClientEmit("TOKEN_REFRESHED"));
   await page.waitForTimeout(50);
-  ok((await page.inputValue("#employeeForm input[name=full_name]")) === "Typing in progress", "form survives");
+  ok((await page.inputValue("#employeeForm input[name=full_name]")) === "Typing in progress", "form survives token refresh");
 
   // ---- layout + sign out ----
-  for (const tab of ["home", "employees", "training", "files"]) {
+  for (const tab of ["home", "documents", "training", "employees", "updates"]) {
     await page.click(`[data-tab=${tab}]`);
     ok(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), `no sideways scroll on ${tab} at phone width`);
     await page.screenshot({ path: join(tmp, `hub-${tab}.png`), fullPage: true });
@@ -192,7 +276,67 @@ try {
   await page.click("header [data-action=sign-out]");
   await page.waitForSelector("#authForm");
   ok(true, "sign out returns to sign-in");
-  ok(page.errors.length === 0, "no page errors: " + page.errors.join(" | "));
+  ok(page.errors.length === 0, "no owner page errors: " + page.errors.join(" | "));
+  await page.close();
+
+  // ---- NBW staff ----
+  {
+    const page = await newPage();
+    const text = async sel => (await page.textContent(sel)) || "";
+    await page.waitForSelector("#authForm");
+    await page.evaluate(({ soon }) => {
+      const db = window.__fake.db;
+      const now = new Date().toISOString();
+      db.businesses.push(
+        { id: "b-roof", owner_id: "user-marco@example.com", name: "Desert Ridge Roofing LLC", contact_name: "Marco", created_at: now },
+        { id: "b-pool", owner_id: "user-ana@example.com", name: "Blue Pool <i>Service</i>", contact_name: null, created_at: now }
+      );
+      db.employees.push({ id: "e1", business_id: "b-roof", full_name: "Luis", active: true, created_at: now });
+      db.documents.push(
+        { id: "d1", business_id: "b-roof", type_id: "nscb_license", label: "C-15", status: "under_review", expires_on: null, note: null, created_at: now },
+        { id: "d2", business_id: "b-roof", type_id: "general_liability", label: null, status: "current", expires_on: soon, note: null, created_at: now }
+      );
+      db.document_files.push({ id: "f1", document_id: "d1", business_id: "b-roof", storage_path: "b-roof/docs/u/license.pdf", file_name: "license.pdf", size_bytes: 4000, created_at: now });
+    }, { soon: daysFromNow(10) });
+    await signUpAndIn(page, "team@nbw.test");
+    await page.waitForSelector("text=Clients");
+
+    ok(!!(await page.$(".staff-chip")) && !(await page.$("#setupForm")) && !(await page.$(".tabbar")), "staff get the client list, not owner setup");
+    ok((await text(".lede")) === "1 document waiting for review.", "staff see review queue size");
+    ok((await text(".clients .item:first-child .item-title")) === "Desert Ridge Roofing LLC", "client with reviews listed first");
+    ok((await text(".clients")).includes("Blue Pool <i>Service</i>"), "client names shown as plain text");
+
+    await page.click(".clients .item:first-child [data-action=open-client]");
+    await page.waitForSelector("text=All clients");
+    const card = ".review-card:has-text('C-15')";
+    ok((await text(card)).includes("Under review") && (await text(card)).includes("license.pdf"), "staff see the document and its file");
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click(`${card} [data-action=download-file]`)]);
+    ok(dl.url().includes(encodeURIComponent("b-roof/docs/u/license.pdf")), "staff can download client files");
+
+    await page.selectOption(`${card} select[name=status]`, "current");
+    await page.fill(`${card} input[name=expires_on]`, daysFromNow(300));
+    await page.click(`${card} button[type=submit]`);
+    await page.waitForFunction(() => window.__fake.db.documents.find(d => d.id === "d1").status === "current");
+    ok((await page.evaluate(() => window.__fake.db.documents.find(d => d.id === "d1").status)) === "current", "review saves status");
+    ok((await text(".review-card:has-text('C-15')")).includes("Current"), "reviewed document shows current");
+
+    await page.selectOption("#requestForm select[name=type_id]", "workers_comp");
+    await page.click("#requestForm button[type=submit]");
+    await page.waitForSelector(".review-card:has-text(\"Workers' comp\")");
+    ok((await text(".review-card:has-text(\"Workers' comp\")")).includes("Action needed"), "request appears as action needed for the client");
+
+    await page.fill("#updateForm textarea", "Got your license. Checking it against NSCB records.");
+    await page.click("#updateForm button[type=submit]");
+    await page.waitForSelector(".updates .update");
+    ok((await page.evaluate(() => window.__fake.db.updates.filter(u => u.business_id === "b-roof").length)) === 1, "update posted to this client only");
+
+    await page.click("[data-action=close-client]");
+    ok((await text(".lede")) === "Nothing waiting for review.", "queue empties after review");
+    ok(!(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)), "no sideways scroll on staff screens");
+    await page.screenshot({ path: join(tmp, "hub-staff.png"), fullPage: true });
+    ok(page.errors.length === 0, "no staff page errors: " + page.errors.join(" | "));
+    await page.close();
+  }
 
   console.log(`\nALL ${results.length} HUB TESTS PASSED (screenshots in ${tmp})`);
 } finally {

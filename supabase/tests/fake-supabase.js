@@ -1,5 +1,6 @@
 // Test-only stand-in for hub-config.js: an in-memory Supabase client covering
-// just the calls hub.js makes. Access rules are tested separately in rls_test.sql.
+// just the calls hub.js makes. Access rules are tested separately in rls_test.sql;
+// here an email ending in @nbw.test signs in as NBW staff.
 window.HUB_CONFIG = { supabaseUrl: "https://fake.supabase.co", supabaseAnonKey: "test" };
 window.supabase.createClient = function () {
   const nv = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -8,6 +9,14 @@ window.supabase.createClient = function () {
   const KEY = { heat: [1, 0, 1, 1], hazcom: [1, 0] };
   const db = {
     businesses: [], employees: [], attestations: [], training_files: [],
+    documents: [], document_files: [], updates: [],
+    document_types: [
+      { id: "nscb_license", title: "NSCB contractor license", icon: "id", sort: 1 },
+      { id: "general_liability", title: "General liability certificate", icon: "shield", sort: 4 },
+      { id: "workers_comp", title: "Workers' comp policy", icon: "hardhat", sort: 5 },
+      { id: "heat_plan", title: "Written heat illness prevention plan", icon: "sun", sort: 6 },
+      { id: "other", title: "Other document", icon: "doc", sort: 99 }
+    ],
     courses: [
       { id: "heat", title: "Heat Illness Prevention", required_for: "Employees in jobs covered by the heat rule", source_label: "Regulation R131-24", source_url: "https://www.leg.state.nv.us/Register/2024Register/R131-24AP.pdf", renew_months: 12, jha_note: "A written job hazard analysis is required when most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks.", sort: 1 },
       { id: "hazcom", title: "Hazard Communication", required_for: "Employees who work with hazardous chemicals", source_label: "29 CFR 1910.1200", source_url: "javascript:alert(1)", renew_months: 12, jha_note: null, sort: 2 }
@@ -27,12 +36,15 @@ window.supabase.createClient = function () {
   const emit = ev => listeners.forEach(cb => cb(ev, session));
   window.__fake = { db, storage: {}, calls: [] };
   window.__fakeClientEmit = ev => emit(ev);
+  const isStaff = () => !!session && session.user.email.endsWith("@nbw.test");
 
   function builder(table) {
     const q = { op: "select", filters: [], orderBy: null, returning: false, single: null };
     const run = () => {
       window.__fake.calls.push(table + ":" + q.op);
       let rows = db[table];
+      // Owners only ever get their own business row back
+      if (table === "businesses" && q.op === "select" && !isStaff()) rows = rows.filter(r => r.owner_id === session.user.id);
       const match = r => q.filters.every(([c, v]) => r[c] === v);
       let out;
       if (q.op === "insert") {
@@ -40,6 +52,7 @@ window.supabase.createClient = function () {
         const row = Object.assign({ id: uuid(), created_at: now }, q.values);
         if (table === "businesses") row.owner_id = session.user.id;
         if (table === "employees" && row.active === undefined) row.active = true;
+        if (table === "updates") row.author_id = session.user.id;
         rows.push(row);
         out = [row];
         if (!q.returning) return { data: null, error: null };
@@ -80,6 +93,22 @@ window.supabase.createClient = function () {
     from: builder,
     async rpc(name, args) {
       window.__fake.calls.push("rpc:" + name);
+      if (name === "is_staff") return { data: isStaff(), error: null };
+      if (name === "submit_document") {
+        const biz = db.businesses.find(b => b.owner_id === session.user.id);
+        if (!args.p_storage_path.startsWith(biz.id + "/docs/")) return { data: null, error: { message: "File must be stored in your docs folder" } };
+        let doc = args.p_document_id && db.documents.find(d => d.id === args.p_document_id && d.business_id === biz.id);
+        if (args.p_document_id && !doc) return { data: null, error: { message: "Document not found" } };
+        if (doc) {
+          doc.status = "under_review";
+          if (args.p_expires_on) doc.expires_on = args.p_expires_on;
+        } else {
+          doc = { id: uuid(), business_id: biz.id, type_id: args.p_type_id, label: (args.p_label || "").trim() || null, status: "under_review", expires_on: args.p_expires_on, note: null, created_at: new Date().toISOString() };
+          db.documents.push(doc);
+        }
+        db.document_files.push({ id: uuid(), document_id: doc.id, business_id: biz.id, storage_path: args.p_storage_path, file_name: args.p_file_name, size_bytes: args.p_size_bytes, created_at: new Date().toISOString() });
+        return { data: doc.id, error: null };
+      }
       const key = KEY[args.p_course_id];
       const wrong = key.filter((a, i) => args.p_answers[i] !== a).length;
       if (wrong) return { data: { passed: false, wrong }, error: null };

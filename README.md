@@ -32,8 +32,13 @@ To change the address, replace it in every `.html` file, including both form end
 
 To serve it from nevadabusinesswatch.com, add the domain under **Settings → Pages → Custom domain**, then point the domain's DNS at GitHub Pages. Canonical URLs and the sitemap already use that domain.
 
-## Compliance Hub (`hub.html`)
-A login area where business owners track employee safety training: employees, knowledge checks (graded on the server), training files and a CSV export. Its code is `hub.html`, `hub.js` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
+## Business File (`hub.html`)
+A login area for clients and the NBW team. Its code is `hub.html`, `hub.js` and `hub-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
+
+- **Business owners** upload their licenses, insurance certificates and written plans; track crew safety training (knowledge checks graded on the server, training files, a CSV export); and read updates from the NBW team.
+- **NBW staff** see every client's file, review uploaded documents (mark them current with an expiration date, or reject them with a note), request missing documents and post updates.
+
+Every uploaded document stays **Under review** until someone at NBW reviews it, so someone has to check the review queue regularly.
 
 `compliance-hub-demo.html` is a separate sample page with made-up data. It saves nothing outside the visitor's browser.
 
@@ -43,7 +48,12 @@ A login area where business owners track employee safety training: employees, kn
 3. Open **Project Settings → API** (or the **Connect** button). Copy the **Project URL** and the **anon / publishable** key into `hub-config.js`. Never use the `service_role` or secret key.
 4. Open **Authentication → URL Configuration**. Set **Site URL** to `https://nevadabusinesswatch.com/hub.html` and add the same address under **Redirect URLs**. Confirmation and password-reset emails link there.
 5. Leave **Confirm email** on (Authentication → Providers → Email).
-6. Before real clients sign up, set up your own email sender under **Authentication → Emails → SMTP Settings**. Supabase's built-in sender only allows a handful of emails per hour.
+6. Make yourself NBW staff: create an account in `hub.html`, confirm the email, then run this in the SQL Editor with your email:
+   ```
+   insert into public.staff (user_id) select id from auth.users where email = 'you@example.com';
+   ```
+   Repeat for each team member. Only do this for NBW staff: they can see every client's files. To remove someone, `delete from public.staff where user_id = ...`.
+7. Before real clients sign up, set up your own email sender under **Authentication → Emails → SMTP Settings**. Supabase's built-in sender only allows a handful of emails per hour.
 
 If you put the project on a custom domain, add that domain to `connect-src` in the security policy at the top of `hub.html`.
 

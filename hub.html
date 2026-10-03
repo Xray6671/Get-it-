@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
-  <title>Compliance Hub — Nevada Business Watch</title>
+  <title>Business File — Nevada Business Watch</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <style>
     /* Colors follow the client app design: NBW navy and gold, warm paper
@@ -104,20 +104,37 @@
     .pill-warn { background: var(--orange-bg); color: var(--orange-text); }
     .pill-err { background: var(--red-bg); color: var(--red-text); }
     .pill-muted { background: var(--paper); color: var(--muted); }
+    .pill-info { background: var(--blue-bg); color: var(--blue-text); }
 
     label.field { display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; font-weight: 600; }
-    input[type=text], input[type=email], input[type=password], select, input[type=file] { width: 100%; border: 1px solid #d6d3cb; padding: 10px 12px; border-radius: 10px; font-size: 1rem; background: #fff; color: var(--text); }
+    input[type=text], input[type=email], input[type=password], input[type=date], select, input[type=file] { width: 100%; border: 1px solid #d6d3cb; padding: 10px 12px; border-radius: 10px; font-size: 1rem; background: #fff; color: var(--text); }
     input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold); }
 
     /* Bottom tab bar, like the client app */
     .tabbar { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.97); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 10; }
-    .tabbar-in { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
-    .tab { background: none; border: none; cursor: pointer; padding: 8px 4px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #8a8fa3; font-size: 0.78rem; font-weight: 500; position: relative; }
+    .tabbar-in { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+    .tab { background: none; border: none; cursor: pointer; padding: 8px 2px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #6b7088; font-size: 0.74rem; font-weight: 500; position: relative; min-width: 0; }
     .tab.active { color: var(--navy); font-weight: 700; }
     .tab svg { width: 26px; height: 26px; }
     .badge { position: absolute; top: 2px; left: calc(50% + 6px); background: var(--red); color: #fff; font-size: 0.72rem; font-weight: 700; min-width: 20px; height: 20px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid #fff; }
 
-    .ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    .btn .ico { width: 18px; height: 18px; }
+
+    .btn-soft { background: #e4e2dd; }
+    .btn-soft:hover { background: #d9d6cf; }
+    .staff-chip { background: var(--gold); color: var(--navy-dk); font-size: 0.75rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .file-list { list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 2px 0; }
+    .file-list li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+    .file-list .btn-link { text-align: left; word-break: break-all; }
+
+    .updates { list-style: none; display: flex; flex-direction: column; gap: 16px; margin-top: 12px; }
+    .update { display: flex; gap: 14px; align-items: flex-start; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--navy); color: var(--gold); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+    .update-body { margin-top: 2px; font-size: 1rem; }
+    textarea { width: 100%; border: 1px solid #d6d3cb; padding: 10px 12px; border-radius: 10px; font-size: 1rem; resize: vertical; color: var(--text); }
+    textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: var(--gold); }
 
     .modal-overlay { position: fixed; inset: 0; background: rgba(18,23,44,0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20; }
     .modal { background: #fff; width: 100%; max-width: 560px; border-radius: 16px; padding: 22px; max-height: 90vh; overflow-y: auto; }

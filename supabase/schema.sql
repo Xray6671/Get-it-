@@ -4,8 +4,14 @@
 -- never the tables or their data.
 --
 -- Model: one business per owner login. Owners add employees, record knowledge
--- checks (graded on the server) and store training files. Records can't be
--- edited or deleted from the browser, only added, so the history stays intact.
+-- checks (graded on the server), store training files and upload business
+-- documents (licenses, insurance, written plans). NBW staff, listed in
+-- public.staff, can see every client's file, review documents, request new
+-- ones and post updates. Training records can't be edited or deleted from the
+-- browser, only added, so the history stays intact.
+--
+-- To make someone NBW staff, have them create an account in the hub, then run:
+--   insert into public.staff (user_id) select id from auth.users where email = 'them@example.com';
 
 create extension if not exists pgcrypto;
 
@@ -81,6 +87,63 @@ create table if not exists public.training_files (
   created_at    timestamptz not null default now()
 );
 create index if not exists training_files_business_idx on public.training_files (business_id);
+
+alter table public.businesses add column if not exists contact_name text
+  check (contact_name is null or char_length(contact_name) <= 60);
+
+-- NBW team members. Only added from the SQL Editor, never from the browser.
+create table if not exists public.staff (
+  user_id   uuid primary key references auth.users (id) on delete cascade,
+  added_at  timestamptz not null default now()
+);
+
+create table if not exists public.document_types (
+  id     text primary key,
+  title  text not null,
+  icon   text not null default 'doc',
+  sort   int  not null default 0
+);
+
+-- One row per document a business keeps on file. Status:
+--   requested     NBW asked for it and has no copy yet
+--   under_review  the owner uploaded a copy; NBW is checking it
+--   current       NBW checked it; expires_on drives "renew soon" / "expired"
+--   rejected      NBW couldn't accept the copy; note says why
+create table if not exists public.documents (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references public.businesses (id) on delete cascade,
+  type_id      text not null references public.document_types (id),
+  label        text check (label is null or char_length(label) <= 80),
+  status       text not null default 'requested'
+               check (status in ('requested', 'under_review', 'current', 'rejected')),
+  expires_on   date,
+  note         text check (note is null or char_length(note) <= 500),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+create index if not exists documents_business_idx on public.documents (business_id);
+
+create table if not exists public.document_files (
+  id            uuid primary key default gen_random_uuid(),
+  document_id   uuid not null references public.documents (id) on delete cascade,
+  business_id   uuid not null references public.businesses (id) on delete cascade,
+  storage_path  text not null unique,
+  file_name     text not null check (char_length(file_name) between 1 and 200),
+  size_bytes    bigint not null check (size_bytes > 0),
+  uploaded_by   uuid not null references auth.users (id),
+  created_at    timestamptz not null default now()
+);
+create index if not exists document_files_document_idx on public.document_files (document_id);
+
+-- Messages from the NBW team to one client
+create table if not exists public.updates (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references public.businesses (id) on delete cascade,
+  author_id    uuid not null default auth.uid() references auth.users (id),
+  body         text not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at   timestamptz not null default now()
+);
+create index if not exists updates_business_idx on public.updates (business_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -166,6 +229,82 @@ begin
 end;
 $$;
 
+create or replace function public.is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.staff where user_id = auth.uid())
+$$;
+
+create or replace function public.touch_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists documents_touch on public.documents;
+create trigger documents_touch before update on public.documents
+  for each row execute function public.touch_updated_at();
+
+-- An owner sends in a document file. Adds it to an existing document (one NBW
+-- requested, or a renewal) or starts a new one, and always puts the document
+-- under review: only NBW staff can mark a document current.
+create or replace function public.submit_document(
+  p_document_id  uuid,
+  p_type_id      text,
+  p_label        text,
+  p_expires_on   date,
+  p_storage_path text,
+  p_file_name    text,
+  p_size_bytes   bigint
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_business uuid := public.my_business_id();
+  v_doc      uuid := p_document_id;
+begin
+  if v_business is null then
+    raise exception 'No business on this account' using errcode = '42501';
+  end if;
+  if p_storage_path is null or p_storage_path not like v_business::text || '/docs/%' then
+    raise exception 'File must be stored in your docs folder' using errcode = '42501';
+  end if;
+
+  if v_doc is not null then
+    update public.documents
+       set status = 'under_review',
+           expires_on = coalesce(p_expires_on, expires_on)
+     where id = v_doc and business_id = v_business;
+    if not found then
+      raise exception 'Document not found' using errcode = '42501';
+    end if;
+  else
+    if not exists (select 1 from public.document_types where id = p_type_id) then
+      raise exception 'Choose a document type' using errcode = '22023';
+    end if;
+    insert into public.documents (business_id, type_id, label, status, expires_on)
+    values (v_business, p_type_id, nullif(btrim(p_label), ''), 'under_review', p_expires_on)
+    returning id into v_doc;
+  end if;
+
+  insert into public.document_files (document_id, business_id, storage_path, file_name, size_bytes, uploaded_by)
+  values (v_doc, v_business, p_storage_path, p_file_name, p_size_bytes, auth.uid());
+
+  return v_doc;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------------------
@@ -176,31 +315,48 @@ alter table public.courses          enable row level security;
 alter table public.course_questions enable row level security;
 alter table public.attestations     enable row level security;
 alter table public.training_files   enable row level security;
+alter table public.staff            enable row level security;
+alter table public.document_types   enable row level security;
+alter table public.documents        enable row level security;
+alter table public.document_files   enable row level security;
+alter table public.updates          enable row level security;
 
 -- Logged-out visitors get nothing.
 revoke all on public.businesses, public.employees, public.courses, public.course_questions,
-              public.attestations, public.training_files from anon;
+              public.attestations, public.training_files, public.staff, public.document_types,
+              public.documents, public.document_files, public.updates from anon;
 revoke all on schema private from anon, authenticated;
 revoke all on all tables in schema private from anon, authenticated;
 revoke all on function public.submit_check(uuid, text, int[]) from public, anon;
 grant execute on function public.submit_check(uuid, text, int[]) to authenticated;
 revoke all on function public.my_business_id() from public, anon;
 grant execute on function public.my_business_id() to authenticated;
+revoke all on function public.is_staff() from public, anon;
+grant execute on function public.is_staff() to authenticated;
+revoke all on function public.submit_document(uuid, text, text, date, text, text, bigint) from public, anon;
+grant execute on function public.submit_document(uuid, text, text, date, text, text, bigint) to authenticated;
 
 -- Only the operations each table needs; RLS narrows them further.
 revoke all on public.businesses, public.employees, public.courses, public.course_questions,
-              public.attestations, public.training_files from authenticated;
+              public.attestations, public.training_files, public.staff, public.document_types,
+              public.documents, public.document_files, public.updates from authenticated;
 grant select, insert, update on public.businesses     to authenticated;
 grant select, insert, update on public.employees      to authenticated;
 grant select                 on public.courses        to authenticated;
 grant select                 on public.course_questions to authenticated;
 grant select                 on public.attestations   to authenticated;
 grant select, insert, delete on public.training_files to authenticated;
+grant select                 on public.document_types to authenticated;
+grant select, insert, update on public.documents      to authenticated;
+grant select                 on public.document_files to authenticated;
+grant select, insert         on public.updates        to authenticated;
+-- public.staff: no grants. is_staff() reads it on the server.
 
 drop policy if exists "own business: read"   on public.businesses;
 drop policy if exists "own business: create" on public.businesses;
 drop policy if exists "own business: rename" on public.businesses;
-create policy "own business: read"   on public.businesses for select to authenticated using (owner_id = auth.uid());
+create policy "own business: read"   on public.businesses for select to authenticated
+  using (owner_id = auth.uid() or public.is_staff());
 create policy "own business: create" on public.businesses for insert to authenticated with check (owner_id = auth.uid());
 create policy "own business: rename" on public.businesses for update to authenticated
   using (owner_id = auth.uid()) with check (owner_id = auth.uid());
@@ -209,7 +365,7 @@ drop policy if exists "own employees: read"   on public.employees;
 drop policy if exists "own employees: add"    on public.employees;
 drop policy if exists "own employees: edit"   on public.employees;
 create policy "own employees: read" on public.employees for select to authenticated
-  using (business_id = public.my_business_id());
+  using (business_id = public.my_business_id() or public.is_staff());
 create policy "own employees: add"  on public.employees for insert to authenticated
   with check (business_id = public.my_business_id());
 create policy "own employees: edit" on public.employees for update to authenticated
@@ -223,46 +379,79 @@ create policy "questions: read" on public.course_questions for select to authent
 -- No insert policy: records are only written by submit_check.
 drop policy if exists "own attestations: read" on public.attestations;
 create policy "own attestations: read" on public.attestations for select to authenticated
-  using (exists (select 1 from public.employees e
+  using (public.is_staff() or exists (select 1 from public.employees e
                  where e.id = employee_id and e.business_id = public.my_business_id()));
 
 drop policy if exists "own files: read"   on public.training_files;
 drop policy if exists "own files: add"    on public.training_files;
 drop policy if exists "own files: remove" on public.training_files;
 create policy "own files: read" on public.training_files for select to authenticated
-  using (business_id = public.my_business_id());
+  using (business_id = public.my_business_id() or public.is_staff());
 create policy "own files: add" on public.training_files for insert to authenticated
   with check (
     business_id = public.my_business_id()
     and uploaded_by = auth.uid()
-    and storage_path like business_id::text || '/%'
+    and storage_path like business_id::text || '/training/%'
     and (employee_id is null or exists (select 1 from public.employees e
                                         where e.id = employee_id and e.business_id = public.my_business_id()))
   );
 create policy "own files: remove" on public.training_files for delete to authenticated
   using (business_id = public.my_business_id());
 
+drop policy if exists "document types: read" on public.document_types;
+create policy "document types: read" on public.document_types for select to authenticated using (true);
+
+-- Owners read their own documents; only staff create (requests) or change them.
+-- Owners send files through submit_document().
+drop policy if exists "documents: read"           on public.documents;
+drop policy if exists "documents: staff request"  on public.documents;
+drop policy if exists "documents: staff review"   on public.documents;
+create policy "documents: read" on public.documents for select to authenticated
+  using (business_id = public.my_business_id() or public.is_staff());
+create policy "documents: staff request" on public.documents for insert to authenticated
+  with check (public.is_staff());
+create policy "documents: staff review" on public.documents for update to authenticated
+  using (public.is_staff()) with check (public.is_staff());
+
+drop policy if exists "document files: read" on public.document_files;
+create policy "document files: read" on public.document_files for select to authenticated
+  using (business_id = public.my_business_id() or public.is_staff());
+
+drop policy if exists "updates: read"       on public.updates;
+drop policy if exists "updates: staff post" on public.updates;
+create policy "updates: read" on public.updates for select to authenticated
+  using (business_id = public.my_business_id() or public.is_staff());
+create policy "updates: staff post" on public.updates for insert to authenticated
+  with check (public.is_staff() and author_id = auth.uid());
+
 -- ---------------------------------------------------------------------------
 -- File storage: private bucket, one folder per business
+--   {business_id}/training/...  training rosters and certificates
+--   {business_id}/docs/...      business documents (owners can't delete these)
 -- ---------------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('training-files', 'training-files', false, 10485760,
+values ('client-files', 'client-files', false, 10485760,
         array['application/pdf', 'image/png', 'image/jpeg'])
 on conflict (id) do update
   set public = false,
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
-drop policy if exists "training files: read own folder"   on storage.objects;
-drop policy if exists "training files: upload own folder" on storage.objects;
-drop policy if exists "training files: delete own folder" on storage.objects;
-create policy "training files: read own folder" on storage.objects for select to authenticated
-  using (bucket_id = 'training-files' and (storage.foldername(name))[1] = public.my_business_id()::text);
-create policy "training files: upload own folder" on storage.objects for insert to authenticated
-  with check (bucket_id = 'training-files' and (storage.foldername(name))[1] = public.my_business_id()::text);
-create policy "training files: delete own folder" on storage.objects for delete to authenticated
-  using (bucket_id = 'training-files' and (storage.foldername(name))[1] = public.my_business_id()::text);
+drop policy if exists "client files: read"   on storage.objects;
+drop policy if exists "client files: upload" on storage.objects;
+drop policy if exists "client files: delete training" on storage.objects;
+create policy "client files: read" on storage.objects for select to authenticated
+  using (bucket_id = 'client-files'
+         and ((storage.foldername(name))[1] = public.my_business_id()::text or public.is_staff()));
+create policy "client files: upload" on storage.objects for insert to authenticated
+  with check (bucket_id = 'client-files'
+              and (storage.foldername(name))[1] = public.my_business_id()::text
+              and (storage.foldername(name))[2] in ('training', 'docs'));
+create policy "client files: delete training" on storage.objects for delete to authenticated
+  using (bucket_id = 'client-files'
+         and (storage.foldername(name))[1] = public.my_business_id()::text
+         and (storage.foldername(name))[2] = 'training');
 
 -- ---------------------------------------------------------------------------
 -- Course content. Edit here and re-run to change questions; the browser never
@@ -301,3 +490,14 @@ insert into private.course_answers (course_id, position, answer) values
   ('heat', 1, 1), ('heat', 2, 0), ('heat', 3, 1), ('heat', 4, 1),
   ('hazcom', 1, 1), ('hazcom', 2, 0)
 on conflict (course_id, position) do update set answer = excluded.answer;
+
+insert into public.document_types (id, title, icon, sort) values
+  ('nscb_license',      'NSCB contractor license',              'id',      1),
+  ('state_license',     'Nevada State Business License',        'id',      2),
+  ('local_license',     'City or county business license',      'id',      3),
+  ('general_liability', 'General liability certificate',        'shield',  4),
+  ('workers_comp',      'Workers'' comp policy',                'hardhat', 5),
+  ('heat_plan',         'Written heat illness prevention plan', 'sun',     6),
+  ('safety_program',    'Written workplace safety program',     'doc',     7),
+  ('other',             'Other document',                       'doc',     99)
+on conflict (id) do update set title = excluded.title, icon = excluded.icon, sort = excluded.sort;
