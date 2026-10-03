@@ -16,6 +16,8 @@ Static website (HTML, CSS, and a little JavaScript) for Nevada Business Watch LL
 
 There's also `404.html` (page not found). Shared styles are in `styles.css`, and shared scripts (text size, menu, animations, lesson checklists) are in `site.js`. Sample reports are in `reports/`.
 
+`hub.html` is a client-facing safety and training hub prototype (sample client data, nothing is saved, `noindex`, not linked from the nav). Training status is worked out from each expiry date; passing the heat knowledge check logs completion and sets the next expiry from `expiresMonths`.
+
 ## Preview locally
 ```
 npx http-server -p 8080 .

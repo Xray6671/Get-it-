@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>My Business File — Safety &amp; Compliance Hub</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #ea580c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 20px 16px; max-width: 900px; margin: 0 auto; }
+
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    .kicker { font-size: 0.875rem; color: var(--muted); margin-top: 2px; }
+
+    nav { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap; }
+    .tab-btn { background: none; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; cursor: pointer; color: var(--muted); }
+    .tab-btn.active { background: #e0e7ff; color: var(--primary); }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .list { list-style: none; }
+    .doc { border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; background: var(--card); }
+    .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.875rem; font-weight: 500; text-decoration: none; color: var(--text); }
+    .btn:hover { background: #f1f5f9; }
+    .btn-primary { background: var(--primary); color: #fff; border: none; }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .pill { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+    .pill-ok { background: #dcfce7; color: var(--success); }
+    .pill-warn { background: #ffedd5; color: var(--warning); }
+    .pill-err { background: #fee2e2; color: var(--danger); }
+
+    .note { font-size: 0.85em; color: var(--muted); }
+    .msg { padding: 8px 12px; border-radius: 4px; font-size: 0.9em; }
+    .msg-err { background: #fee2e2; color: var(--danger); }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal { background: #fff; width: 100%; max-width: 550px; border-radius: 8px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .q { border: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .q:last-of-type { border-bottom: 0; }
+    .q label { display: block; margin-top: 4px; }
+
+    .ico { width: 18px; height: 18px; display: inline-block; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</head>
+<body>
+
+  <div id="app"></div>
+
+  <script>
+    // ============================================================================
+    // STATE & DICTIONARY
+    // ============================================================================
+    // Sample client data. Statuses are derived from expiryDate, never stored.
+    const S = {
+      tab: "training",
+      sheet: null,
+      client: { biz: "Desert Sun Operations LLC" },
+      trainings: [
+        {
+          id: "heat-2026",
+          title: "Nevada Heat Illness Prevention (R131-24)",
+          category: "safety",
+          requiredFor: "Field Personnel & Supervisors",
+          mandatory: true,
+          expiresMonths: 12,
+          jhaRequired: true,
+          quiz: "heat",
+          completedDate: "2025-05-10",
+          expiryDate: "2026-05-10",
+          certUrl: null,
+          upload: null
+        },
+        {
+          id: "gen-safety",
+          title: "General Workplace Safety & Hazard Communication",
+          category: "safety",
+          requiredFor: "All Staff",
+          mandatory: true,
+          expiresMonths: 12,
+          quiz: null,
+          completedDate: "2026-01-15",
+          expiryDate: "2027-01-15",
+          certUrl: "https://example.com/certs/gen-safety-2026.pdf",
+          upload: null
+        }
+      ]
+    };
+
+    // Quizzes are keyed by topic so a quiz can only complete the training it belongs to.
+    const QUIZZES = {
+      heat: [
+        {
+          q: "When must drinking water be available to workers exposed to heat?",
+          options: [["a", "Only when it is above 105°F"], ["b", "At all times during the heat exposure"]],
+          answer: "b"
+        },
+        {
+          q: "What do you do if a worker shows signs of heat stroke (confusion, collapse, hot skin)?",
+          options: [["a", "Call 911 right away and start cooling them"], ["b", "Have them rest in the shade until the shift ends"]],
+          answer: "a"
+        },
+        {
+          q: "When does Nevada require a written heat hazard analysis for a job?",
+          options: [["a", "When most workers in the job are exposed to heat more than 30 minutes in any hour"], ["b", "When any worker is exposed more than 10 minutes in any hour"]],
+          answer: "a"
+        }
+      ]
+    };
+
+    const EXPIRING_SOON_DAYS = 30;
+
+    const T = {
+      en: {
+        tHome: "Dashboard",
+        tDocs: "Documents",
+        tTraining: "Safety & Training",
+        tValidUntil: "Expires",
+        tCompleted: "Completed",
+        tStartCourse: "Take Knowledge Check",
+        tUploadRoster: "Upload Record",
+        tViewCert: "View Certificate",
+        tStatusValid: "Current",
+        tStatusSoon: "Expiring Soon",
+        tStatusExpired: "Action Needed",
+        tJhaTitle: "Heat Hazard Analysis",
+        tJhaDesc: "Required in writing when most workers in a job are exposed to heat for more than 30 minutes in any hour (11+ employees).",
+        tQuizIntro: "Answer every question correctly to log completion. This check supplements the live crew training and signed attendance roster; it does not replace them.",
+        tQuizWrong: "Some answers are wrong. Review the heat plan and try again.",
+        tQuizSubmit: "Submit & Log Completion",
+        tUploadIntro: "Attach the signed attendance roster or a third-party completion certificate (PDF, PNG or JPG).",
+        tUploadNote: "Files are kept in this browser tab only and are cleared when you leave the page.",
+        tUploadNone: "Choose a file first.",
+        tUploadSubmit: "Attach File",
+        tAttached: "Attached"
+      }
+    };
+
+    function t() { return T.en; }
+    function esc(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    function safeUrl(url) { return /^https?:\/\//i.test(url || "") ? url : null; }
+
+    function today() { return new Date().toISOString().split("T")[0]; }
+    function addMonths(isoDate, months) {
+      const d = new Date(isoDate + "T00:00:00Z");
+      const day = d.getUTCDate();
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + months);
+      const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      d.setUTCDate(Math.min(day, lastDay));
+      return d.toISOString().split("T")[0];
+    }
+    function statusOf(item) {
+      if (!item.expiryDate) return "expired";
+      const days = (Date.parse(item.expiryDate) - Date.parse(today())) / 86400000;
+      if (days < 0) return "expired";
+      if (days <= EXPIRING_SOON_DAYS) return "soon";
+      return "valid";
+    }
+
+    const I = {
+      training: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>`,
+      cert: `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>`
+    };
+
+    // ============================================================================
+    // VIEWS
+    // ============================================================================
+    function viewTraining() {
+      const L = t();
+      const pills = {
+        valid: ["pill-ok", L.tStatusValid],
+        soon: ["pill-warn", L.tStatusSoon],
+        expired: ["pill-err", L.tStatusExpired]
+      };
+
+      const cardsHtml = S.trainings.map(tItem => {
+        const [pillClass, pillText] = pills[statusOf(tItem)];
+        const certUrl = safeUrl(tItem.certUrl);
+
+        return `
+          <li class="doc">
+            <div class="doc-head">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="background: rgba(37,99,235,0.1); padding: 8px; border-radius: 6px; color: var(--primary);">
+                  ${I.training}
+                </span>
+                <div>
+                  <strong>${esc(tItem.title)}</strong>
+                  <div class="note">${esc(tItem.requiredFor)}</div>
+                </div>
+              </div>
+              <span class="pill ${pillClass}">${pillText}</span>
+            </div>
+
+            ${tItem.jhaRequired ? `
+              <div style="background: #f1f5f9; padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin: 12px 0;">
+                <strong>${L.tJhaTitle}:</strong> ${L.tJhaDesc}
+              </div>
+            ` : '<div style="margin-top: 12px;"></div>'}
+
+            <div class="note" style="margin-bottom: 12px;">
+              <span><strong>${L.tValidUntil}:</strong> ${esc(tItem.expiryDate)}</span>
+              ${tItem.completedDate ? `<span style="margin-left: 15px;"><strong>${L.tCompleted}:</strong> ${esc(tItem.completedDate)}</span>` : ""}
+              ${tItem.upload ? `<span style="margin-left: 15px;"><strong>${L.tAttached}:</strong> ${esc(tItem.upload)}</span>` : ""}
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              ${tItem.quiz && QUIZZES[tItem.quiz] ? `
+                <button class="btn btn-primary" data-action="launch-quiz" data-id="${esc(tItem.id)}">
+                  ${I.cert} ${L.tStartCourse}
+                </button>` : ""}
+              <button class="btn" data-action="upload-cert" data-id="${esc(tItem.id)}">
+                ${L.tUploadRoster}
+              </button>
+              ${certUrl ? `<a href="${esc(certUrl)}" target="_blank" rel="noopener" class="btn">${L.tViewCert}</a>` : ""}
+            </div>
+          </li>
+        `;
+      }).join("");
+
+      return `
+        <div class="panel">
+          <h2>Safety Training Modules</h2>
+          <p class="kicker" style="margin-bottom: 16px;">Required Nevada workplace safety and heat training records</p>
+          <ul class="list">${cardsHtml}</ul>
+        </div>
+      `;
+    }
+
+    function viewHome() {
+      const due = S.trainings.filter(x => statusOf(x) !== "valid").length;
+      return `<div class="panel"><h2>Dashboard</h2><p>Welcome to the ${esc(S.client.biz)} compliance dashboard.</p>
+        <p class="note" style="margin-top: 8px;">${due} of ${S.trainings.length} trainings need attention.</p></div>`;
+    }
+
+    function viewDocs() {
+      return `<div class="panel"><h2>Documents</h2><p>Upload and manage business licenses and filings.</p></div>`;
+    }
+
+    function quizHtml(item) {
+      const L = t();
+      const questions = QUIZZES[item.quiz].map((q, i) => `
+        <fieldset class="q">
+          <legend><strong>${i + 1}. ${esc(q.q)}</strong></legend>
+          ${q.options.map(([val, text], j) => `
+            <label><input type="radio" name="q${i}" value="${val}" ${j === 0 ? "required" : ""}> ${esc(text)}</label>
+          `).join("")}
+        </fieldset>
+      `).join("");
+
+      return `
+        <form id="quizForm" data-id="${esc(item.id)}" style="display: flex; flex-direction: column; gap: 16px;">
+          <p class="note">${L.tQuizIntro}</p>
+          ${questions}
+          <div id="quizMsg" role="alert"></div>
+          <button type="submit" class="btn btn-primary" style="margin-top: 10px;">${L.tQuizSubmit}</button>
+        </form>
+      `;
+    }
+
+    function uploadHtml(item) {
+      const L = t();
+      return `
+        <form id="uploadForm" data-id="${esc(item.id)}" style="display:flex; flex-direction:column; gap:12px;">
+          <p>${L.tUploadIntro}</p>
+          <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" style="border: 1px solid var(--border); padding: 8px; border-radius: 4px;">
+          <p class="note">${L.tUploadNote}</p>
+          <div id="uploadMsg" role="alert"></div>
+          <button type="submit" class="btn btn-primary">${L.tUploadSubmit}</button>
+        </form>
+      `;
+    }
+
+    // ============================================================================
+    // RENDER ENGINE
+    // ============================================================================
+    function render() {
+      const L = t();
+      const app = document.getElementById("app");
+
+      let bodyContent = "";
+      if (S.tab === "home") bodyContent = viewHome();
+      else if (S.tab === "docs") bodyContent = viewDocs();
+      else if (S.tab === "training") bodyContent = viewTraining();
+
+      let sheetHtml = "";
+      if (S.sheet) {
+        sheetHtml = `
+          <div class="modal-overlay" data-action="close-sheet">
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+              <div class="modal-header">
+                <h3 id="sheetTitle">${esc(S.sheet.title)}</h3>
+                <button class="btn" data-action="close-sheet" aria-label="Close">✕</button>
+              </div>
+              <div>${S.sheet.content}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      app.innerHTML = `
+        <header>
+          <div>
+            <h1>${esc(S.client.biz)}</h1>
+            <div class="kicker">Compliance &amp; Operations Hub</div>
+          </div>
+        </header>
+
+        <nav>
+          <button class="tab-btn ${S.tab === "home" ? "active" : ""}" data-tab="home">${L.tHome}</button>
+          <button class="tab-btn ${S.tab === "docs" ? "active" : ""}" data-tab="docs">${L.tDocs}</button>
+          <button class="tab-btn ${S.tab === "training" ? "active" : ""}" data-tab="training">${L.tTraining}</button>
+        </nav>
+
+        <main>${bodyContent}</main>
+        ${sheetHtml}
+      `;
+
+      if (S.sheet) {
+        const first = app.querySelector(".modal input, .modal button");
+        if (first) first.focus();
+      }
+    }
+
+    function closeSheet() {
+      S.sheet = null;
+      render();
+    }
+
+    // ============================================================================
+    // EVENT ROUTING & QUIZ LOGIC
+    // ============================================================================
+    document.addEventListener("click", e => {
+      const tabBtn = e.target.closest("[data-tab]");
+      if (tabBtn) {
+        S.tab = tabBtn.dataset.tab;
+        render();
+        return;
+      }
+
+      // Overlay closes only on a click on the backdrop itself, not inside the modal.
+      const closeEl = e.target.closest("[data-action='close-sheet']");
+      if (closeEl && (closeEl.tagName === "BUTTON" || e.target === closeEl)) {
+        closeSheet();
+        return;
+      }
+
+      const quizBtn = e.target.closest("[data-action='launch-quiz']");
+      if (quizBtn) {
+        const item = S.trainings.find(x => x.id === quizBtn.dataset.id);
+        if (!item || !QUIZZES[item.quiz]) return;
+        S.sheet = { title: item.title, content: quizHtml(item) };
+        render();
+        return;
+      }
+
+      const uploadBtn = e.target.closest("[data-action='upload-cert']");
+      if (uploadBtn) {
+        const item = S.trainings.find(x => x.id === uploadBtn.dataset.id);
+        if (!item) return;
+        S.sheet = { title: `Upload Record: ${item.title}`, content: uploadHtml(item) };
+        render();
+      }
+    });
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && S.sheet) closeSheet();
+    });
+
+    document.addEventListener("submit", e => {
+      const L = t();
+
+      if (e.target.id === "quizForm") {
+        e.preventDefault();
+        const item = S.trainings.find(x => x.id === e.target.dataset.id);
+        if (!item || !QUIZZES[item.quiz]) return;
+        const data = new FormData(e.target);
+        const passed = QUIZZES[item.quiz].every((q, i) => data.get(`q${i}`) === q.answer);
+        if (!passed) {
+          e.target.querySelector("#quizMsg").innerHTML = `<div class="msg msg-err">${L.tQuizWrong}</div>`;
+          return;
+        }
+        item.completedDate = today();
+        item.expiryDate = addMonths(item.completedDate, item.expiresMonths);
+        closeSheet();
+        return;
+      }
+
+      if (e.target.id === "uploadForm") {
+        e.preventDefault();
+        const item = S.trainings.find(x => x.id === e.target.dataset.id);
+        if (!item) return;
+        const file = new FormData(e.target).get("file");
+        if (!file || !file.name) {
+          e.target.querySelector("#uploadMsg").innerHTML = `<div class="msg msg-err">${L.tUploadNone}</div>`;
+          return;
+        }
+        item.upload = file.name;
+        closeSheet();
+      }
+    });
+
+    // Initial Render
+    render();
+  </script>
+</body>
+</html>
