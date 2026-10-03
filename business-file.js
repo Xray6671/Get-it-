@@ -88,6 +88,11 @@ const T={
   ord:{requested:"Requested",confirmed:"Confirmed",in_progress:"In progress",delivered:"Delivered",cancelled:"Cancelled"}, oSending:"Sending…", oFail:"That didn't send. Check your connection and try again.",
   oSheet:p=>`Order: ${p}`, oList:"Listed price", oYours:"Your price", oStart:"To start", oDelivery:"At delivery", oBilled:"Billed monthly", oNote:"Anything we should know? (optional)", oNotePh:"e.g. Two job sites, Spanish-speaking crew", oSend:"Send order",
   oFine:"No payment now. NBW confirms your order and emails you an invoice.", oDone:"Order sent. We'll confirm it and email your invoice.",
+  secReq:"Required", secCrew:"Crew training", secPkg:"Packages",
+  reqSum:(n,crew,heat)=>`With ${crew} employees${heat?" and heat on the job":""}, you need these ${n} things in place.`,
+  bestForYou:"Best fit for you", otherPkgs:"Other packages",
+  doTitle:"What to do", doReview:"Nothing to do. We're checking the copy you sent.", doRequested:"Upload a copy so we can add it to your file.",
+  doExpired:"Renew it with the agency that issued it, then upload the new copy here.", doSoon:"Renew it before it expires, then upload the new copy here.", doOk:"Nothing to do right now.",
   crewTitle:"Crew training", crewLead:"A knowledge check for each employee. Hand them the phone: they read the key points, answer and sign.", crewNone:"No employees yet. Add your crew to track their training.",
   addEmp:"Add employee", empName:"Full name", empJob:"Job title (optional)", empAdd:"Add employee", empNeedName:"Enter the employee's name.",
   archive:"Archive employee", archived:"Archived. Their training records stay on file.", tr:{ok:"Current",soon:"Due soon",over:"Overdue",none:"No record"},
@@ -143,6 +148,11 @@ const T={
   ord:{requested:"Solicitado",confirmed:"Confirmado",in_progress:"En proceso",delivered:"Entregado",cancelled:"Cancelado"}, oSending:"Enviando…", oFail:"No se envió. Revise su conexión e intente otra vez.",
   oSheet:p=>`Pedido: ${p}`, oList:"Precio de lista", oYours:"Su precio", oStart:"Para empezar", oDelivery:"Al entregar", oBilled:"Se cobra cada mes", oNote:"¿Algo que debamos saber? (opcional)", oNotePh:"p. ej. Dos obras, equipo que habla español", oSend:"Enviar pedido",
   oFine:"No se cobra nada ahora. NBW confirma su pedido y le envía la factura por correo.", oDone:"Pedido enviado. Lo confirmaremos y le enviaremos la factura.",
+  secReq:"Requisitos", secCrew:"Capacitación", secPkg:"Paquetes",
+  reqSum:(n,crew,heat)=>`Con ${crew} empleados${heat?" y calor en el trabajo":""}, necesita tener estas ${n} cosas en orden.`,
+  bestForYou:"Lo mejor para usted", otherPkgs:"Otros paquetes",
+  doTitle:"Qué hacer", doReview:"Nada por ahora. Estamos revisando la copia que envió.", doRequested:"Suba una copia para agregarla a su expediente.",
+  doExpired:"Renuévela con la agencia que la emitió y luego suba la copia nueva aquí.", doSoon:"Renuévela antes de que venza y luego suba la copia nueva aquí.", doOk:"Nada por ahora.",
   crewTitle:"Capacitación del equipo", crewLead:"Una prueba de conocimientos para cada empleado. Páseles el teléfono: leen los puntos clave, contestan y firman.", crewNone:"Aún no hay empleados. Agregue a su equipo para llevar su capacitación.",
   addEmp:"Agregar empleado", empName:"Nombre completo", empJob:"Puesto (opcional)", empAdd:"Agregar empleado", empNeedName:"Escriba el nombre del empleado.",
   archive:"Archivar empleado", archived:"Archivado. Sus registros de capacitación se conservan.", tr:{ok:"Al día",soon:"Vence pronto",over:"Vencida",none:"Sin registro"},
@@ -300,7 +310,7 @@ function viewHome(){
     <h2 class="section-h">${L.todo}</h2><section class="panel"><ul class="list">${todo.length?todo.map(d=>docRow(d,pid)).join(""):`<li class="empty">${L.leadNeed(0)}</li>`}</ul></section>
     <button class="btn btn-${pid?"line":"primary"} btn-lg" data-up="">${pid?L.other:L.upTitle}</button>
     <section class="panel"><div class="note-card" style="padding-top:16px"><span class="ico c-safety">${ic("safe")}</span><div><h2>${L.homeSafe}</h2><p style="color:var(--muted)">${L.homeSafeM}</p>
-      <button class="btn btn-line" data-tab="safe" style="margin-top:10px">${L.homeSafeBtn}</button></div></div></section>
+      <button class="btn btn-line" data-tab="safe" data-go="req" style="margin-top:10px">${L.homeSafeBtn}</button></div></div></section>
     ${u?`<section class="panel"><div class="panel-h"><h2>${L.latest}</h2><button class="link link-more" data-tab="upd">${L.seeAll}${ic("chev")}</button></div>
       <div class="note-card">${TEAM_AVATAR}<div><small>${L.team} · ${fmt(u.at)}</small><p>${esc(u[lang])}</p></div></div></section>`:""}
   </div>`;
@@ -335,37 +345,55 @@ const OPEN=["requested","confirmed","in_progress"];
 // Best fit: the Heat Plan for 11-25 with heat exposure, the full program otherwise, the kit for small crews.
 const bestFit=()=>S.crew==="small"?"kit":S.crew==="mid"&&S.heat!=="no"?"heat":"full";
 
+// Three sections, so each fits on about one phone screen
 function viewSafe(){
+  const L=t(), sec=S.safeSec||"req";
+  const seg=(items,cur,attr)=>`<div class="seg" role="group">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`).join("")}</div>`;
+  const body=sec==="crew"?viewCrew():sec==="pkg"?viewPkgs():viewReqs();
+  return `<div class="stack"><div><h1>${L.safeTitle}</h1><div class="kicker">${esc(S.client.biz)}</div></div>
+    <div class="safe-nav">${seg([["req",L.secReq],["crew",L.secCrew],["pkg",L.secPkg]],sec,"data-safesec")}</div>
+    ${body}</div>`;
+}
+function viewReqs(){
   const L=t(), crew=S.crew, heat=S.heat, heatOn=heat!=="no";
   const seg=(items,cur,attr)=>`<div class="seg" role="group">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`).join("")}</div>`;
   const item=(n,k,cite)=>`<li class="req"><span class="chk" aria-hidden="true">${n}</span><div><div class="n">${L[k]}</div><div class="m">${L[k+"m"]}</div><cite>${cite}</cite></div></li>`;
   const reqs=[];
   if(crew!=="small"){ reqs.push(["r1","NRS 618.383"],["r2","NRS 618.383"],["r3","NRS 618.383"]); if(crew==="big") reqs.push(["r4","NRS 618.383"]); }
   if(heatOn) reqs.push(["r5","R131-24"], ...(crew!=="small"?[["r6","R131-24"]]:[]), ["r7","R131-24"], ["r8","R131-24"]);
-  const fit=bestFit(), list=PKGS.filter(p=>p.crews.includes(crew)&&(!p.heat||heatOn));
-  const disc=pct()>0;
-  const pkgRow=p=>{ const open=S.orders.find(o=>o.pkg===p.id&&OPEN.includes(o.status||"requested")), ordered=!!open;
-    return `<li class="pkg"><div class="n">${L[p.k]}${p.id===fit?`<span class="tag">${L.recommended}</span>`:""}</div>
-      <div class="price">${disc?`<s>${money(p.price)}</s>`:""}<b>${money(yourPrice(p))}</b><span>${p.monthly?L.perMonth:L.oneTime}</span></div>
-      ${ordered?`<span class="pill p-review">${L.ord[open.status||"requested"]}</span>`:`<button class="btn ${p.id===fit?"btn-primary":"btn-line"}" data-order="${p.id}">${L.order}</button>`}
-      <div class="m">${L[p.k+"M"]}</div></li>`; };
-  return `<div class="stack"><div><h1>${L.safeTitle}</h1><div class="kicker">${esc(S.client.biz)}</div><p class="lead">${L.safeLead}</p></div>
+  const crewLabel={small:L.crew1,mid:L.crew2,big:L.crew3}[crew];
+  return `<p class="lead" style="margin:0">${L.safeLead}</p>
     <div class="group"><span class="group-l" id="crew-q">${L.crewQ}</span>${seg([["small",L.crew1],["mid",L.crew2],["big",L.crew3]],crew,"data-crew")}<p class="fine" style="padding:0 4px">${L.crewHint}</p></div>
     <div class="group"><span class="group-l">${L.heatQ}</span>${seg([["yes",L.yes],["no",L.no],["unsure",L.notSure]],heat,"data-heat")}<p class="fine" style="padding:0 4px">${L.heatHint}</p></div>
     <h2 class="section-h">${L.reqTitle}</h2>
-    <section class="panel">${crew==="small"?`<div class="callout" style="margin:12px 16px${reqs.length?" 0":""}">${L.reqSmall}</div>`:""}
+    <section class="panel">${reqs.length?`<p class="req-sum">${L.reqSum(reqs.length,crewLabel,heatOn)}</p>`:""}
+      ${crew==="small"?`<div class="callout" style="margin:12px 16px${reqs.length?" 0":""}">${L.reqSmall}</div>`:""}
       ${reqs.length?`<ul class="reqs">${reqs.map(([k,c],i)=>item(i+1,k,c)).join("")}</ul>`:""}
       ${heat==="unsure"?`<div class="callout" style="margin:0 16px 12px">${L.heatUnsure}</div>`:""}</section>
-    <p class="fine">${L.reqFine}</p>
-    ${viewCrew()}
-    ${S.orders.length?`<h2 class="section-h">${L.ordTitle}</h2><section class="panel"><ul class="feed">${S.orders.map(o=>`<li><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><strong>${L[PKGS.find(p=>p.id===o.pkg).k]}</strong><span class="pill ${o.status==="delivered"||o.status==="confirmed"?"p-ok":o.status==="cancelled"?"p-soon":"p-review"}">${L.ord[o.status||"requested"]}</span></div><time>${fmt(o.at)} · ${esc(o.note||((o.status||"requested")==="requested"?L.ordReqM:""))}</time></li>`).join("")}</ul></section>`:""}
-    <h2 class="section-h">${L.pkgTitle}</h2>
-    <section class="panel"><p class="fine" style="padding-top:12px">${disc?L.pkgLead(esc(S.client.plan||"NBW"),pct()):L.pkgLeadNone}</p><ul class="list">${list.map(pkgRow).join("")}</ul></section>
-    <p class="fine">${L.bigCrew}</p></div>`;
+    <p class="fine">${L.reqFine}</p>`;
+}
+function viewPkgs(){
+  const L=t(), crew=S.crew, heatOn=S.heat!=="no", disc=pct()>0;
+  const fit=bestFit(), list=PKGS.filter(p=>p.crews.includes(crew)&&(!p.heat||heatOn));
+  const best=list.filter(p=>p.id===fit), others=list.filter(p=>p.id!==fit);
+  // Reads top to bottom: what it is, what it costs, then the button
+  const pkgRow=p=>{ const open=S.orders.find(o=>o.pkg===p.id&&OPEN.includes(o.status||"requested"));
+    return `<li class="pkg"><div class="n">${L[p.k]}</div>
+      <div class="m">${L[p.k+"M"]}</div>
+      <div class="price">${disc?`<s>${money(p.price)}</s>`:""}<b>${money(yourPrice(p))}</b><span>${p.monthly?L.perMonth:L.oneTime}</span></div>
+      ${open?`<span class="pill p-review">${L.ord[open.status||"requested"]}</span>`:`<button class="btn ${p.id===fit?"btn-primary":"btn-line"}" data-order="${p.id}">${L.order}</button>`}</li>`; };
+  return `${S.orders.length?`<h2 class="section-h">${L.ordTitle}</h2><section class="panel"><ul class="feed">${S.orders.map(o=>`<li><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><strong>${L[PKGS.find(p=>p.id===o.pkg).k]}</strong><span class="pill ${o.status==="delivered"||o.status==="confirmed"?"p-ok":o.status==="cancelled"?"p-soon":"p-review"}">${L.ord[o.status||"requested"]}</span></div><time>${fmt(o.at)} · ${esc(o.note||((o.status||"requested")==="requested"?L.ordReqM:""))}</time></li>`).join("")}</ul></section>`:""}
+    <p class="lead" style="margin:0">${disc?L.pkgLead(esc(S.client.plan||"NBW"),pct()):L.pkgLeadNone}</p>
+    ${best.length?`<h2 class="section-h">${L.bestForYou}</h2><section class="panel"><ul class="list">${best.map(pkgRow).join("")}</ul></section>`:""}
+    ${others.length?`<h2 class="section-h">${L.otherPkgs}</h2><section class="panel"><ul class="list">${others.map(pkgRow).join("")}</ul></section>`:""}
+    <p class="fine">${L.bigCrew}</p>`;
 }
 // Training standing comes from the latest signed check, never stored
 const addMonths=(s,m)=>{const [y,mo,d]=s.split("-").map(Number), x=new Date(y,mo-1+m,d); if(x.getDate()!==d) x.setDate(0); return iso(x);};
 const ctitle=c=>lang==="es"?c.title_es:c.title;
+// Short names keep the crew list scannable; full names are on each employee's page
+const SHORT={heat:{en:"Heat",es:"Calor"},hazcom:{en:"Chemicals",es:"Químicos"}};
+const cshort=c=>(SHORT[c.id]||{})[lang]||ctitle(c);
 function standing(empId,c){
   let last=null; S.atts.forEach(a=>{ if(a.emp===empId&&a.course===c.id&&(!last||a.on>last.on)) last=a; });
   if(!last) return {k:"none"};
@@ -375,12 +403,12 @@ function standing(empId,c){
 const TRP={ok:"p-ok",soon:"p-soon",over:"p-need",none:"p-need"};
 function viewCrew(){
   const L=t(), emps=S.emps.filter(e=>e.active);
-  return `<h2 class="section-h">${L.crewTitle}</h2>
-    <section class="panel"><p class="fine" style="padding-top:12px">${L.crewLead}</p>
+  return `<p class="lead" style="margin:0">${L.crewLead}</p>
+    <section class="panel">
     <ul class="list" id="crew">${emps.length?emps.map(e=>`<li class="doc"><button class="doc-main" data-emp="${esc(e.id)}">
         <span class="ico c-wc">${ic("people")}</span>
         <span class="doc-text"><span class="n">${esc(e.name)}</span>${e.job?`<span class="m">${esc(e.job)}</span>`:""}
-          <span style="display:flex;flex-wrap:wrap;gap:6px">${S.courses.map(c=>{const st=standing(e.id,c); return `<span class="pill ${TRP[st.k]}">${esc(ctitle(c))}: ${L.tr[st.k]}</span>`;}).join("")}</span></span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px">${S.courses.map(c=>{const st=standing(e.id,c); return `<span class="pill ${TRP[st.k]}">${esc(cshort(c))}: ${L.tr[st.k]}</span>`;}).join("")}</span></span>
         ${ic("chev","chev")}</button></li>`).join(""):`<li class="empty">${L.crewNone}</li>`}</ul>
     <div style="padding:4px 16px 16px"><button class="btn btn-line" data-addemp>${L.addEmp}</button></div></section>`;
 }
@@ -475,12 +503,19 @@ function sheetUpload(id){
    <div class="err" id="up-err" aria-live="polite"></div>
    <button class="btn btn-primary btn-lg" id="up-send" type="button">${L.upSend}</button>`;
 }
+function advice(d){
+  const L=t(), s=st(d);
+  if(s==="review") return L.doReview;
+  if(s==="ok") return L.doOk;
+  if(s==="soon") return L.doSoon;
+  return d.exp?L.doExpired:L.doRequested;
+}
 function sheetDetail(id){
   const L=t(), d=S.docs.find(x=>x.id===id), s=st(d);
   const ev=[...d.hist].sort((a,b)=>b.at.localeCompare(a.at)).map(h=>`<li>${L[h.k]}${h.file?`: ${esc(h.file)}`:""}${h.note?`<small>“${esc(h.note)}”</small>`:""}<small>${fmt(h.at)}</small></li>`).join("");
   return `<div class="sheet-h"><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="ico c-${d.cat}">${ic(d.cat)}</span><h2>${esc(dname(d))}</h2></div><button class="x" data-close aria-label="${L.close}">×</button></div>
    <dl class="facts"><dt>${L.status}</dt><dd>${pill(s)}</dd><dt>${L.category}</dt><dd>${L.cats[d.cat]}</dd><dt>${L.expires}</dt><dd>${d.exp?fmt(d.exp):"—"}</dd></dl>
-   <p class="fine">${esc(sub(d))}</p>
+   <div class="callout"><strong>${L.doTitle}:</strong> ${esc(advice(d))}</div>
    <h3 style="font-size:1rem">${L.hist}</h3><ul class="timeline">${ev||`<li>—</li>`}</ul>
    <button class="btn btn-primary btn-lg" data-up="${d.id}">${s==="need"||s==="soon"?L.upload:L.uploadNew}</button>`;
 }
@@ -557,7 +592,7 @@ async function sendLive(which,exp,note,err){
 document.addEventListener("focusin",e=>{ if(!sheet){ const b=e.target.closest("[data-up],[data-det],[data-order],#menu"); if(b) lastFocus=b.id==="menu"?"#menu":b.dataset.up!==undefined?`[data-up="${b.dataset.up}"]`:b.dataset.order!==undefined?`[data-order="${b.dataset.order}"]`:`[data-det="${b.dataset.det}"]`; }});
 document.addEventListener("click",e=>{
   const g=s=>e.target.closest(s); let b;
-  if(b=g("[data-tab]")){tab=b.dataset.tab; sheet=null; render(); window.scrollTo(0,0); return;}
+  if(b=g("[data-tab]")){tab=b.dataset.tab; if(b.dataset.go) S.safeSec=b.dataset.go; sheet=null; render(); window.scrollTo(0,0); return;}
   if(b=g("[data-goto]")){tab="docs"; S.filter=b.dataset.goto; render(); return;}
   if(b=g("[data-f]")){S.filter=b.dataset.f; render(); return;}
   if(b=g("[data-up]")){sheet={type:"up",id:b.dataset.up}; pending=[]; render(); return;}
@@ -570,6 +605,7 @@ document.addEventListener("click",e=>{
   if(g("#signout")){sheet=null; if(LIVE){sb.auth.signOut(); return;} S.signedIn=false; render(); return;}
   if(g("[data-close]")||e.target.id==="scrim"){sheet=null; pending=[]; render(); return;}
   if(e.target.id==="si-demo"){S.signedIn=true; tab="home"; render(); return;}
+  if(b=g("[data-safesec]")){S.safeSec=b.dataset.safesec; render(); return;}
   if(b=g("[data-crew]")){S.crew=b.dataset.crew; render(); return;}
   if(b=g("[data-heat]")){S.heat=b.dataset.heat; render(); return;}
   if(b=g("[data-order]")){sheet={type:"order",id:b.dataset.order}; render(); return;}

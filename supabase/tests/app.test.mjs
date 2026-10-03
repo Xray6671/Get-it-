@@ -70,8 +70,11 @@ try {
     const page = await open("business-file-demo.html");
     await page.waitForSelector("text=Welcome back, Marco");
     ok((await page.text("#demo-note")).includes("Demo with an example client"), "demo: shows the demo notice");
+    await page.click("[data-det]");
+    ok((await page.text(".sheet .callout")).includes("Renew it with the agency that issued it"), "demo: document detail says what to do");
+    await page.click(".sheet [data-close]");
     await page.click("main [data-tab=safe]");
-    ok((await page.text("h1")) === "Health & safety", "demo: Safety tab opens");
+    ok((await page.text("h1")) === "Health & safety" && (await page.$$("[data-safesec]")).length === 3, "demo: Safety tab opens on its three sections");
     const combos = { "small,no": 0, "mid,yes": 7, "big,no": 4 };
     for (const [k, n] of Object.entries(combos)) {
       const [c, h] = k.split(",");
@@ -79,14 +82,19 @@ try {
       ok((await page.$$(".req")).length === n, `demo: ${k} lists ${n} requirements`);
     }
     await page.click("[data-crew=mid]"); await page.click("[data-heat=yes]");
-    ok((await page.text(".pkg:has(.tag) .price")).includes("$1,020"), "demo: Heat Plan at the 15% client price");
+    ok((await page.text(".req-sum")) === "With 11–25 employees and heat on the job, you need these 7 things in place.", "demo: one-line summary of what's required");
+    ok(!(await page.$("#crew")) && !(await page.$(".pkg")), "demo: requirements section shows only requirements");
+    await page.click("[data-safesec=pkg]");
+    ok((await page.text(".pkg >> nth=0")).startsWith("Heat Plan") && (await page.text(".pkg >> nth=0")).includes("$1,020"), "demo: best fit first, at the 15% client price");
+    ok(await page.evaluate(() => { const p = document.querySelector(".pkg"); return p.querySelector(".m").compareDocumentPosition(p.querySelector("button")) & Node.DOCUMENT_POSITION_FOLLOWING; }), "demo: description comes before the Order button");
     await page.click("[data-order=heat]");
     await page.click("#o-send");
     await page.waitForSelector(".toast");
     ok((await page.text("main")).includes("Your orders") && !(await page.$("[data-order=heat]")), "demo: order listed, can't be ordered twice");
     // crew training
+    await page.click("[data-safesec=crew]");
     ok((await page.$$("#crew .doc")).length === 3, "demo: crew of three listed");
-    ok((await page.text("#crew [data-emp=e-luis]")).includes("Heat Illness Prevention: Due soon"), "demo: Luis's heat check due soon");
+    ok((await page.text("#crew [data-emp=e-luis]")).includes("Heat: Due soon"), "demo: short course names in the crew list");
     await page.click("[data-emp=e-sam]");
     ok((await page.text(".sheet")).includes("No record"), "demo: Sam has no record");
     await page.click(".sheet [data-check=heat]");
@@ -105,7 +113,7 @@ try {
     await page.waitForSelector(".toast:has-text('Sam Patel passed Heat Illness Prevention')");
     ok(true, "demo: passing check confirmed");
     await page.click(".sheet [data-close]");
-    ok((await page.text("#crew [data-emp=e-sam]")).includes("Heat Illness Prevention: Current"), "demo: Sam now current");
+    ok((await page.text("#crew [data-emp=e-sam]")).includes("Heat: Current"), "demo: Sam now current");
     await page.click("[data-addemp]");
     await page.fill("#emp-name", "Rosa Diaz");
     await page.click("#emp-form button[type=submit]");
@@ -170,7 +178,8 @@ try {
 
     // order the Heat Plan
     await page.click("nav.bottom [data-tab=safe]");
-    ok((await page.text(".pkg:has(.tag) .price")).includes("$1,020") && (await page.text(".pkg:has(.tag) .price")).includes("$1,200"), "live: client price uses the client's discount");
+    await page.click("[data-safesec=pkg]");
+    ok((await page.text(".pkg >> nth=0")).includes("$1,020") && (await page.text(".pkg >> nth=0")).includes("$1,200"), "live: client price uses the client's discount");
     await page.click("[data-order=heat]");
     ok((await page.text(".sheet")).includes("$510"), "live: deposit shown");
     await page.fill("#o-note", "Two sites");
@@ -182,6 +191,7 @@ try {
     ok(!(await page.$("[data-order=heat]")) && (await page.text("main")).includes("Requested"), "live: order shows as requested");
 
     // crew training, live
+    await page.click("[data-safesec=crew]");
     ok((await page.$$("#crew .doc")).length === 1, "live: client's crew listed");
     await page.click("[data-addemp]");
     await page.fill("#emp-name", "Ana Ruiz");
@@ -211,6 +221,7 @@ try {
     ok((await page.evaluate(id => window.__fake.db.employees.find(e => e.id === id).active, ana.id)) === false, "live: employee archived, not deleted");
 
     // Spanish and other modes still work signed in
+    await page.click("[data-safesec=pkg]");
     await page.click("#menu"); await page.click("[data-lang=es]"); await page.click("[data-close]");
     ok((await page.text("h1")) === "Salud y seguridad" && (await page.text("main")).includes("Solicitado"), "live: Spanish, including order status");
     ok(await page.noSideScroll(), "live: no sideways scroll");
