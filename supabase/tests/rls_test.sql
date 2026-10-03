@@ -196,6 +196,73 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select pg_temp.expect((select status from public.orders where id = current_setting('t.heat')::uuid) = 'confirmed', 'owner sees the confirmation');
 select pg_temp.expect((select count(*) from public.document_events where kind = 'reviewed') = 1, 'owner sees the review in the history');
 
+-- ---------- crew training ----------
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+insert into public.employees (client_id, full_name, job_title) values (current_setting('t.a')::uuid, 'Luis Ortega', 'Roofer');
+select set_config('t.luis', (select id::text from public.employees where full_name = 'Luis Ortega'), false);
+select pg_temp.expect((select count(*) from public.course_questions where course_id = 'heat') = 4
+  and (select prompt_es from public.course_questions where course_id = 'heat' and position = 1) like '¿Cuándo%', 'questions readable in English and Spanish');
+do $$ begin
+  perform 1 from private.course_answers;
+  raise exception 'FAILED: answer key readable';
+exception when insufficient_privilege then raise notice 'ok: answer key not readable';
+end $$;
+do $$ begin
+  perform public.submit_check(current_setting('t.luis')::uuid, 'heat', array[1,0,1,1], '  ');
+  raise exception 'FAILED: unsigned check accepted';
+exception when invalid_parameter_value then raise notice 'ok: checks must be signed';
+end $$;
+select pg_temp.expect((public.submit_check(current_setting('t.luis')::uuid, 'heat', array[0,0,0,0], 'Luis Ortega') ->> 'wrong')::int = 3, 'wrong answers counted, nothing recorded');
+select pg_temp.expect((select count(*) from public.attestations) = 0, 'failed check leaves no record');
+select pg_temp.expect((public.submit_check(current_setting('t.luis')::uuid, 'heat', array[1,0,1,1], ' Luis Ortega ') ->> 'passed')::boolean, 'correct answers pass');
+select pg_temp.expect((select signed_name = 'Luis Ortega' and completed_on = public.nv_today() and client_id = current_setting('t.a')::uuid
+  from public.attestations), 'record keeps the signature, the Nevada date and the client');
+do $$ begin
+  insert into public.attestations (client_id, employee_id, course_id, completed_on, signed_name, recorded_by)
+  values (current_setting('t.a')::uuid, current_setting('t.luis')::uuid, 'hazcom', '2026-01-01', 'x', auth.uid());
+  raise exception 'FAILED: record written directly';
+exception when insufficient_privilege then raise notice 'ok: records only come from a passed check';
+end $$;
+do $$ begin
+  delete from public.attestations;
+  raise exception 'FAILED: record deleted';
+exception when insufficient_privilege then raise notice 'ok: records cannot be deleted';
+end $$;
+do $$ begin
+  delete from public.employees;
+  raise exception 'FAILED: employee deleted';
+exception when insufficient_privilege then raise notice 'ok: employees are archived, not deleted';
+end $$;
+update public.employees set active = false where id = current_setting('t.luis')::uuid;
+do $$ begin
+  perform public.submit_check(current_setting('t.luis')::uuid, 'heat', array[1,0,1,1], 'Luis');
+  raise exception 'FAILED: archived employee took a check';
+exception when insufficient_privilege then raise notice 'ok: archived employees cannot take checks';
+end $$;
+update public.employees set active = true where id = current_setting('t.luis')::uuid;
+
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.expect((select count(*) from public.employees) + (select count(*) from public.attestations) = 0, 'B sees none of A''s crew or records');
+do $$ begin
+  insert into public.employees (client_id, full_name) values (current_setting('t.a')::uuid, 'Mallory');
+  raise exception 'FAILED: B added an employee to A';
+exception when insufficient_privilege then raise notice 'ok: B cannot add employees to A';
+end $$;
+do $$ declare n int; begin
+  update public.employees set active = false;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAILED: B archived A''s employee'; end if;
+  raise notice 'ok: B cannot change A''s crew';
+end $$;
+do $$ begin
+  perform public.submit_check(current_setting('t.luis')::uuid, 'heat', array[1,0,1,1], 'Luis');
+  raise exception 'FAILED: B recorded a check for A';
+exception when insufficient_privilege then raise notice 'ok: B cannot record checks for A''s crew';
+end $$;
+
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.expect((select count(*) from public.attestations) = 1 and (select count(*) from public.employees) = 1, 'staff see crews and records');
+
 -- ---------- upload cap ----------
 reset role;
 insert into storage.objects (bucket_id, name)

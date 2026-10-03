@@ -517,3 +517,205 @@ insert into public.packages (id, title, price_cents, billing, done_for_you, sort
 on conflict (id) do update set
   title = excluded.title, price_cents = excluded.price_cents, billing = excluded.billing,
   done_for_you = excluded.done_for_you, sort = excluded.sort;
+
+-- ===========================================================================
+-- Crew training: knowledge checks for each employee
+-- Clients add their crew; each check shows key points, then questions, then
+-- the employee signs by typing their name. Checks are graded here, so the
+-- answer key never reaches the browser, and records can only be added.
+-- ===========================================================================
+
+create table if not exists public.employees (
+  id          uuid primary key default gen_random_uuid(),
+  client_id   uuid not null references public.clients (id) on delete cascade,
+  full_name   text not null check (char_length(btrim(full_name)) between 1 and 80),
+  job_title   text check (job_title is null or char_length(job_title) <= 80),
+  active      boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+create index if not exists employees_client_idx on public.employees (client_id);
+
+create table if not exists public.courses (
+  id            text primary key,
+  title         text not null,
+  title_es      text not null,
+  source_label  text not null,
+  renew_months  int  not null check (renew_months between 1 and 60),
+  lesson        jsonb not null default '[]'::jsonb,
+  lesson_es     jsonb not null default '[]'::jsonb,
+  lesson_url    text check (lesson_url is null or lesson_url like 'https://%'),
+  sort          int  not null default 0
+);
+
+create table if not exists public.course_questions (
+  course_id   text not null references public.courses (id) on delete cascade,
+  position    int  not null,
+  prompt      text not null,
+  prompt_es   text not null,
+  options     jsonb not null check (jsonb_typeof(options) = 'array'),
+  options_es  jsonb not null check (jsonb_typeof(options_es) = 'array'),
+  primary key (course_id, position)
+);
+
+-- The answer key lives outside the API-exposed schema
+create schema if not exists private;
+create table if not exists private.course_answers (
+  course_id  text not null,
+  position   int  not null,
+  answer     int  not null,
+  primary key (course_id, position),
+  foreign key (course_id, position) references public.course_questions (course_id, position) on delete cascade
+);
+
+create table if not exists public.attestations (
+  id            uuid primary key default gen_random_uuid(),
+  client_id     uuid not null references public.clients (id) on delete cascade,
+  employee_id   uuid not null references public.employees (id) on delete cascade,
+  course_id     text not null references public.courses (id),
+  completed_on  date not null,
+  signed_name   text not null check (char_length(btrim(signed_name)) between 1 and 80),
+  recorded_by   uuid not null references auth.users (id),
+  created_at    timestamptz not null default now()
+);
+create index if not exists attestations_client_idx on public.attestations (client_id);
+
+-- Nevada's calendar date, so a check taken at 9pm in Las Vegas isn't dated tomorrow
+create or replace function public.nv_today()
+returns date
+language sql
+stable
+set search_path = ''
+as $$
+  select (now() at time zone 'America/Los_Angeles')::date
+$$;
+
+-- Records a check only if every answer is right and the employee signed it.
+-- Returns how many answers were wrong, never which ones.
+create or replace function public.submit_check(p_employee_id uuid, p_course_id text, p_answers int[], p_signed_name text)
+returns json
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_client  uuid;
+  v_total   int;
+  v_wrong   int;
+  v_months  int;
+  v_today   date := public.nv_today();
+  v_signed  text := btrim(coalesce(p_signed_name, ''));
+begin
+  select client_id into v_client from public.employees where id = p_employee_id and active;
+  if v_client is null or not public.is_member(v_client) then
+    raise exception 'Employee not found' using errcode = '42501';
+  end if;
+  if char_length(v_signed) not between 1 and 80 then
+    raise exception 'The employee must type their name to sign' using errcode = '22023';
+  end if;
+  select renew_months into v_months from public.courses where id = p_course_id;
+  if v_months is null then
+    raise exception 'Course not found' using errcode = '22023';
+  end if;
+  select count(*) into v_total from private.course_answers where course_id = p_course_id;
+  if p_answers is null or coalesce(array_length(p_answers, 1), 0) <> v_total then
+    raise exception 'Answer every question' using errcode = '22023';
+  end if;
+
+  -- position is 1-based, matching the array index
+  select count(*) into v_wrong from private.course_answers a
+  where a.course_id = p_course_id and a.answer is distinct from p_answers[a.position];
+  if v_wrong > 0 then
+    return json_build_object('passed', false, 'wrong', v_wrong);
+  end if;
+
+  insert into public.attestations (client_id, employee_id, course_id, completed_on, signed_name, recorded_by)
+  values (v_client, p_employee_id, p_course_id, v_today, v_signed, auth.uid());
+  return json_build_object('passed', true, 'wrong', 0, 'completed_on', v_today,
+                           'due_on', (v_today + make_interval(months => v_months))::date);
+end;
+$$;
+
+alter table public.employees        enable row level security;
+alter table public.courses          enable row level security;
+alter table public.course_questions enable row level security;
+alter table public.attestations     enable row level security;
+
+revoke all on public.employees, public.courses, public.course_questions, public.attestations from anon, authenticated;
+revoke all on schema private from anon, authenticated;
+revoke all on all tables in schema private from anon, authenticated;
+grant select, insert, update on public.employees        to authenticated;
+grant select                 on public.courses          to authenticated;
+grant select                 on public.course_questions to authenticated;
+grant select                 on public.attestations     to authenticated;
+revoke all on function public.submit_check(uuid, text, int[], text) from public, anon;
+grant execute on function public.submit_check(uuid, text, int[], text) to authenticated;
+
+-- Employees are archived (active = false), never deleted, so records stay on file
+drop policy if exists "employees: read"  on public.employees;
+drop policy if exists "employees: add"   on public.employees;
+drop policy if exists "employees: edit"  on public.employees;
+create policy "employees: read" on public.employees for select to authenticated
+  using ((select public.is_staff()) or public.is_member(client_id));
+create policy "employees: add" on public.employees for insert to authenticated
+  with check (public.is_member(client_id));
+create policy "employees: edit" on public.employees for update to authenticated
+  using (public.is_member(client_id)) with check (public.is_member(client_id));
+
+drop policy if exists "courses: read"   on public.courses;
+drop policy if exists "questions: read" on public.course_questions;
+create policy "courses: read"   on public.courses          for select to authenticated using (true);
+create policy "questions: read" on public.course_questions for select to authenticated using (true);
+
+-- No insert policy: records are only written by submit_check()
+drop policy if exists "attestations: read" on public.attestations;
+create policy "attestations: read" on public.attestations for select to authenticated
+  using ((select public.is_staff()) or public.is_member(client_id));
+
+-- Course content. Edit and re-run to change it. Answer numbers are 0-based
+-- option indexes. Have a native speaker review the Spanish.
+insert into public.courses (id, title, title_es, source_label, renew_months, lesson, lesson_es, lesson_url, sort) values
+  ('heat', 'Heat Illness Prevention', 'Prevención de enfermedades por calor', 'Regulation R131-24', 12,
+   '["Drink water often, before you feel thirsty. Your employer must give you drinkable water.", "Take rest breaks in shade or a cool area, and take one right away if you feel signs of heat illness.", "Early signs: heavy sweating, cramps, headache, dizziness, nausea or weakness. Stop, cool down, drink water and tell your supervisor.", "Severe signs: confusion, slurred speech, fainting, collapse or a seizure. Call 911 right away and start cooling the person.", "New and returning workers need shorter first days to get used to the heat.", "Your workplace has a designated person who watches conditions and calls emergency services if someone gets sick. Know who it is.", "When most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks, the employer needs a written job hazard analysis, judged as if workers had no water, rest or shade."]'::jsonb,
+   '["Tome agua seguido, antes de sentir sed. Su empleador debe darle agua potable.", "Descanse en la sombra o en un lugar fresco, y descanse de inmediato si siente señales de enfermedad por calor.", "Señales tempranas: sudor abundante, calambres, dolor de cabeza, mareo, náuseas o debilidad. Pare, refrésquese, tome agua y avise a su supervisor.", "Señales graves: confusión, dificultad para hablar, desmayo, colapso o convulsiones. Llame al 911 de inmediato y empiece a enfriar a la persona.", "Los trabajadores nuevos y los que regresan necesitan días más cortos al principio para acostumbrarse al calor.", "Su lugar de trabajo tiene una persona designada que vigila las condiciones y llama a emergencias si alguien se enferma. Sepa quién es.", "Cuando la mayoría de los trabajadores de un puesto pasa más de 30 minutos de cada 60 en el calor, sin contar descansos, el empleador necesita un análisis escrito de riesgos, evaluado como si no hubiera agua, descanso ni sombra."]'::jsonb,
+   'https://nevadabusinesswatch.com/lessons.html#s7l1', 1),
+  ('hazcom', 'Hazard Communication', 'Comunicación de peligros', '29 CFR 1910.1200', 12,
+   '["You have a right to know about the hazardous chemicals you work with.", "Safety Data Sheets (SDS) explain each chemical''s hazards and how to protect yourself. They must be available to you during every shift.", "Shipped chemical containers are labeled with the product identifier, a signal word, hazard statements and pictograms.", "Read the label before you use a chemical. Do not use anything from an unlabeled container: ask your supervisor.", "Wear the protective equipment the SDS calls for, and know where to find first aid steps for each chemical."]'::jsonb,
+   '["Usted tiene derecho a conocer los químicos peligrosos con los que trabaja.", "Las Hojas de Datos de Seguridad (SDS) explican los peligros de cada químico y cómo protegerse. Deben estar disponibles para usted en cada turno.", "Los envases de químicos que se envían llevan una etiqueta con el identificador del producto, una palabra de advertencia, frases de peligro y pictogramas.", "Lea la etiqueta antes de usar un químico. No use nada de un envase sin etiqueta: pregunte a su supervisor.", "Use el equipo de protección que indica la SDS y sepa dónde encontrar los primeros auxilios para cada químico."]'::jsonb,
+   null, 2)
+on conflict (id) do update set
+  title = excluded.title, title_es = excluded.title_es, source_label = excluded.source_label,
+  renew_months = excluded.renew_months, lesson = excluded.lesson, lesson_es = excluded.lesson_es,
+  lesson_url = excluded.lesson_url, sort = excluded.sort;
+
+insert into public.course_questions (course_id, position, prompt, prompt_es, options, options_es) values
+  ('heat', 1, 'When does a job need heat provisions and a written job hazard analysis?',
+   '¿Cuándo necesita un puesto medidas contra el calor y un análisis escrito de riesgos?',
+   '["Only when it is over 105°F", "When most workers in the job are in the heat more than 30 minutes of any 60, not counting breaks", "Whenever any worker is outdoors for more than 10 minutes"]',
+   '["Solo cuando hace más de 105°F", "Cuando la mayoría de los trabajadores del puesto pasa más de 30 minutos de cada 60 en el calor, sin contar descansos", "Siempre que un trabajador esté afuera más de 10 minutos"]'),
+  ('heat', 2, 'When you write the job hazard analysis, how should you judge conditions?',
+   'Al escribir el análisis de riesgos, ¿cómo se evalúan las condiciones?',
+   '["As if workers had no water, rest or shade", "Based on the coolest part of the shift", "Based on how workers say they feel"]',
+   '["Como si los trabajadores no tuvieran agua, descanso ni sombra", "Según la parte más fresca del turno", "Según cómo dicen sentirse los trabajadores"]'),
+  ('heat', 3, 'What is the designated person''s job?',
+   '¿Cuál es el trabajo de la persona designada?',
+   '["Sign the training roster each year", "Monitor conditions and call emergency services if a worker gets sick", "Decide which workers can skip breaks"]',
+   '["Firmar la lista de capacitación cada año", "Vigilar las condiciones y llamar a emergencias si un trabajador se enferma", "Decidir qué trabajadores pueden saltarse los descansos"]'),
+  ('heat', 4, 'A worker shows signs of severe heat illness (confusion, collapse). What do you do?',
+   'Un trabajador muestra señales graves de enfermedad por calor (confusión, colapso). ¿Qué hace?',
+   '["Have them rest in the shade until the shift ends", "Call 911 right away and start cooling them", "Give them water and send them home to recover"]',
+   '["Dejarlo descansar en la sombra hasta que termine el turno", "Llamar al 911 de inmediato y empezar a enfriarlo", "Darle agua y mandarlo a casa a recuperarse"]'),
+  ('hazcom', 1, 'When must Safety Data Sheets be available to employees?',
+   '¿Cuándo deben estar disponibles las Hojas de Datos de Seguridad para los empleados?',
+   '["Only on request, within 30 days", "During every shift, for the chemicals in their work area", "Only during the yearly training"]',
+   '["Solo si las piden, dentro de 30 días", "En cada turno, para los químicos de su área de trabajo", "Solo durante la capacitación anual"]'),
+  ('hazcom', 2, 'Which of these must appear on a shipped chemical container''s label?',
+   '¿Qué debe aparecer en la etiqueta de un envase de químicos que se envía?',
+   '["Product identifier, signal word, hazard statements and pictograms", "Only the brand name", "The purchase date and price"]',
+   '["Identificador del producto, palabra de advertencia, frases de peligro y pictogramas", "Solo el nombre de la marca", "La fecha y el precio de compra"]')
+on conflict (course_id, position) do update set
+  prompt = excluded.prompt, prompt_es = excluded.prompt_es, options = excluded.options, options_es = excluded.options_es;
+
+insert into private.course_answers (course_id, position, answer) values
+  ('heat', 1, 1), ('heat', 2, 0), ('heat', 3, 1), ('heat', 4, 1),
+  ('hazcom', 1, 1), ('hazcom', 2, 0)
+on conflict (course_id, position) do update set answer = excluded.answer;

@@ -88,6 +88,13 @@ const T={
   ord:{requested:"Requested",confirmed:"Confirmed",in_progress:"In progress",delivered:"Delivered",cancelled:"Cancelled"}, oSending:"Sending…", oFail:"That didn't send. Check your connection and try again.",
   oSheet:p=>`Order: ${p}`, oList:"Listed price", oYours:"Your price", oStart:"To start", oDelivery:"At delivery", oBilled:"Billed monthly", oNote:"Anything we should know? (optional)", oNotePh:"e.g. Two job sites, Spanish-speaking crew", oSend:"Send order",
   oFine:"No payment now. NBW confirms your order and emails you an invoice.", oDone:"Order sent. We'll confirm it and email your invoice.",
+  crewTitle:"Crew training", crewLead:"A knowledge check for each employee. Hand them the phone: they read the key points, answer and sign.", crewNone:"No employees yet. Add your crew to track their training.",
+  addEmp:"Add employee", empName:"Full name", empJob:"Job title (optional)", empAdd:"Add employee", empNeedName:"Enter the employee's name.",
+  archive:"Archive employee", archived:"Archived. Their training records stay on file.", tr:{ok:"Current",soon:"Due soon",over:"Overdue",none:"No record"},
+  lastDone:"Last completed", dueAgain:"Due again", takeCheck:c=>`Take check: ${c}`, readFirst:"Read this first", fullLesson:"Read the full lesson",
+  iRead:"I read these points.", sig:"Employee signature: type your full name", sigFine:"By signing, the employee confirms they reviewed this material. This check is a review, not a certification.",
+  chkSubmit:"Sign and submit", chkTitle:c=>`Knowledge check: ${c}`, chkFor:n=>`Employee: ${n}`, chkWrong:n=>`${n} answer${n>1?"s are":" is"} not right. Read the points again and try once more.`,
+  chkPassed:(n,c,d)=>`${n} passed ${c}. Due again ${d}. Keep a signed training record as well.`, chkFail:"That didn't save. Check your connection and try again.",
   homeSafe:"Health & safety, done for you", homeSafeM:"See what Nevada requires for your crew size, and have NBW write your plan.", homeSafeBtn:"See requirements"},
  es:{demo:"Demostración con un cliente de ejemplo. Los archivos se quedan en esta pestaña y no se envían a nadie.",
   hi:n=>n?`Bienvenido, ${n}`:"Bienvenido", fileFor:b=>`Expediente de ${b}`,
@@ -136,14 +143,58 @@ const T={
   ord:{requested:"Solicitado",confirmed:"Confirmado",in_progress:"En proceso",delivered:"Entregado",cancelled:"Cancelado"}, oSending:"Enviando…", oFail:"No se envió. Revise su conexión e intente otra vez.",
   oSheet:p=>`Pedido: ${p}`, oList:"Precio de lista", oYours:"Su precio", oStart:"Para empezar", oDelivery:"Al entregar", oBilled:"Se cobra cada mes", oNote:"¿Algo que debamos saber? (opcional)", oNotePh:"p. ej. Dos obras, equipo que habla español", oSend:"Enviar pedido",
   oFine:"No se cobra nada ahora. NBW confirma su pedido y le envía la factura por correo.", oDone:"Pedido enviado. Lo confirmaremos y le enviaremos la factura.",
+  crewTitle:"Capacitación del equipo", crewLead:"Una prueba de conocimientos para cada empleado. Páseles el teléfono: leen los puntos clave, contestan y firman.", crewNone:"Aún no hay empleados. Agregue a su equipo para llevar su capacitación.",
+  addEmp:"Agregar empleado", empName:"Nombre completo", empJob:"Puesto (opcional)", empAdd:"Agregar empleado", empNeedName:"Escriba el nombre del empleado.",
+  archive:"Archivar empleado", archived:"Archivado. Sus registros de capacitación se conservan.", tr:{ok:"Al día",soon:"Vence pronto",over:"Vencida",none:"Sin registro"},
+  lastDone:"Última vez", dueAgain:"Vence", takeCheck:c=>`Hacer prueba: ${c}`, readFirst:"Lea esto primero", fullLesson:"Leer la lección completa",
+  iRead:"Leí estos puntos.", sig:"Firma del empleado: escriba su nombre completo", sigFine:"Al firmar, el empleado confirma que revisó este material. Esta prueba es un repaso, no una certificación.",
+  chkSubmit:"Firmar y enviar", chkTitle:c=>`Prueba: ${c}`, chkFor:n=>`Empleado: ${n}`, chkWrong:n=>`${n} respuesta${n>1?"s no son correctas":" no es correcta"}. Lea los puntos otra vez e intente de nuevo.`,
+  chkPassed:(n,c,d)=>`${n} aprobó ${c}. Vence ${d}. Guarde también un registro de capacitación firmado.`, chkFail:"No se guardó. Revise su conexión e intente otra vez.",
   homeSafe:"Salud y seguridad, hecho por usted", homeSafeM:"Vea lo que Nevada exige según el tamaño de su equipo y deje que NBW escriba su plan.", homeSafeBtn:"Ver requisitos"}
 };
+
+// Course content for the demo. The live app reads the same content from the
+// database, where the answer key stays on the server.
+const DEMO_COURSES=[
+  {id:"heat",title:"Heat Illness Prevention",title_es:"Prevención de enfermedades por calor",renew_months:12,lesson_url:"https://nevadabusinesswatch.com/lessons.html#s7l1",
+   lesson:["Drink water often, before you feel thirsty. Your employer must give you drinkable water.","Take rest breaks in shade or a cool area, and take one right away if you feel signs of heat illness.","Early signs: heavy sweating, cramps, headache, dizziness, nausea or weakness. Stop, cool down, drink water and tell your supervisor.","Severe signs: confusion, slurred speech, fainting, collapse or a seizure. Call 911 right away and start cooling the person.","New and returning workers need shorter first days to get used to the heat.","Your workplace has a designated person who watches conditions and calls emergency services if someone gets sick. Know who it is.","When most workers in a job are in the heat more than 30 minutes of any 60, not counting breaks, the employer needs a written job hazard analysis, judged as if workers had no water, rest or shade."],
+   lesson_es:["Tome agua seguido, antes de sentir sed. Su empleador debe darle agua potable.","Descanse en la sombra o en un lugar fresco, y descanse de inmediato si siente señales de enfermedad por calor.","Señales tempranas: sudor abundante, calambres, dolor de cabeza, mareo, náuseas o debilidad. Pare, refrésquese, tome agua y avise a su supervisor.","Señales graves: confusión, dificultad para hablar, desmayo, colapso o convulsiones. Llame al 911 de inmediato y empiece a enfriar a la persona.","Los trabajadores nuevos y los que regresan necesitan días más cortos al principio para acostumbrarse al calor.","Su lugar de trabajo tiene una persona designada que vigila las condiciones y llama a emergencias si alguien se enferma. Sepa quién es.","Cuando la mayoría de los trabajadores de un puesto pasa más de 30 minutos de cada 60 en el calor, sin contar descansos, el empleador necesita un análisis escrito de riesgos, evaluado como si no hubiera agua, descanso ni sombra."]},
+  {id:"hazcom",title:"Hazard Communication",title_es:"Comunicación de peligros",renew_months:12,lesson_url:null,
+   lesson:["You have a right to know about the hazardous chemicals you work with.","Safety Data Sheets (SDS) explain each chemical's hazards and how to protect yourself. They must be available to you during every shift.","Shipped chemical containers are labeled with the product identifier, a signal word, hazard statements and pictograms.","Read the label before you use a chemical. Do not use anything from an unlabeled container: ask your supervisor.","Wear the protective equipment the SDS calls for, and know where to find first aid steps for each chemical."],
+   lesson_es:["Usted tiene derecho a conocer los químicos peligrosos con los que trabaja.","Las Hojas de Datos de Seguridad (SDS) explican los peligros de cada químico y cómo protegerse. Deben estar disponibles para usted en cada turno.","Los envases de químicos que se envían llevan una etiqueta con el identificador del producto, una palabra de advertencia, frases de peligro y pictogramas.","Lea la etiqueta antes de usar un químico. No use nada de un envase sin etiqueta: pregunte a su supervisor.","Use el equipo de protección que indica la SDS y sepa dónde encontrar los primeros auxilios para cada químico."]}
+];
+const DEMO_QUESTIONS=[
+  {course_id:"heat",position:1,prompt:"When does a job need heat provisions and a written job hazard analysis?",prompt_es:"¿Cuándo necesita un puesto medidas contra el calor y un análisis escrito de riesgos?",
+   options:["Only when it is over 105°F","When most workers in the job are in the heat more than 30 minutes of any 60, not counting breaks","Whenever any worker is outdoors for more than 10 minutes"],
+   options_es:["Solo cuando hace más de 105°F","Cuando la mayoría de los trabajadores del puesto pasa más de 30 minutos de cada 60 en el calor, sin contar descansos","Siempre que un trabajador esté afuera más de 10 minutos"]},
+  {course_id:"heat",position:2,prompt:"When you write the job hazard analysis, how should you judge conditions?",prompt_es:"Al escribir el análisis de riesgos, ¿cómo se evalúan las condiciones?",
+   options:["As if workers had no water, rest or shade","Based on the coolest part of the shift","Based on how workers say they feel"],
+   options_es:["Como si los trabajadores no tuvieran agua, descanso ni sombra","Según la parte más fresca del turno","Según cómo dicen sentirse los trabajadores"]},
+  {course_id:"heat",position:3,prompt:"What is the designated person's job?",prompt_es:"¿Cuál es el trabajo de la persona designada?",
+   options:["Sign the training roster each year","Monitor conditions and call emergency services if a worker gets sick","Decide which workers can skip breaks"],
+   options_es:["Firmar la lista de capacitación cada año","Vigilar las condiciones y llamar a emergencias si un trabajador se enferma","Decidir qué trabajadores pueden saltarse los descansos"]},
+  {course_id:"heat",position:4,prompt:"A worker shows signs of severe heat illness (confusion, collapse). What do you do?",prompt_es:"Un trabajador muestra señales graves de enfermedad por calor (confusión, colapso). ¿Qué hace?",
+   options:["Have them rest in the shade until the shift ends","Call 911 right away and start cooling them","Give them water and send them home to recover"],
+   options_es:["Dejarlo descansar en la sombra hasta que termine el turno","Llamar al 911 de inmediato y empezar a enfriarlo","Darle agua y mandarlo a casa a recuperarse"]},
+  {course_id:"hazcom",position:1,prompt:"When must Safety Data Sheets be available to employees?",prompt_es:"¿Cuándo deben estar disponibles las Hojas de Datos de Seguridad para los empleados?",
+   options:["Only on request, within 30 days","During every shift, for the chemicals in their work area","Only during the yearly training"],
+   options_es:["Solo si las piden, dentro de 30 días","En cada turno, para los químicos de su área de trabajo","Solo durante la capacitación anual"]},
+  {course_id:"hazcom",position:2,prompt:"Which of these must appear on a shipped chemical container's label?",prompt_es:"¿Qué debe aparecer en la etiqueta de un envase de químicos que se envía?",
+   options:["Product identifier, signal word, hazard statements and pictograms","Only the brand name","The purchase date and price"],
+   options_es:["Identificador del producto, palabra de advertencia, frases de peligro y pictogramas","Solo el nombre de la marca","La fecha y el precio de compra"]}
+];
+// Demo only: the live app grades on the server and never sees these
+const DEMO_ANSWERS={heat:[1,0,1,1],hazcom:[1,0]};
 
 function seed(){
   const d=(n,es,cat,exp,extra={})=>({id:Math.random().toString(36).slice(2,9),n,es,cat,exp,files:[],hist:[],...extra});
   return {
     client:{first:"Marco",biz:"Desert Ridge Roofing LLC",plan:"Contractor Watch",price:"$199 / month",discountPct:15},
     signedIn:true, filter:"all", crew:"mid", heat:"yes", orders:[],
+    courses:DEMO_COURSES, questions:DEMO_QUESTIONS,
+    emps:[{id:"e-maria",name:"Maria Chen",job:"Crew lead",active:true},{id:"e-luis",name:"Luis Ortega",job:"Roofer",active:true},{id:"e-sam",name:"Sam Patel",job:"Laborer",active:true}],
+    atts:[{emp:"e-maria",course:"heat",on:inDays(-60),signed:"Maria Chen"},{emp:"e-maria",course:"hazcom",on:inDays(-60),signed:"Maria Chen"},
+          {emp:"e-luis",course:"heat",on:inDays(-345),signed:"Luis Ortega"},{emp:"e-luis",course:"hazcom",on:inDays(-120),signed:"Luis Ortega"}],
     docs:[
       d("NSCB contractor license C-15","Licencia de contratista NSCB C-15","license",inDays(-6),{hist:[{k:"evFlag",at:inDays(-40)}]}),
       d("Written heat illness prevention plan","Plan escrito de prevención de enfermedades por calor","safety","",{requested:true,hist:[{k:"evRequested",at:inDays(-9)}]}),
@@ -171,7 +222,7 @@ const LIVE=CONFIGURED&&!NOT_READY&&!!window.supabase;
 const sb=LIVE?window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseAnonKey):null;
 const EVK={uploaded:"evUploaded",reviewed:"evReviewed",requested:"evRequested",flag:"evFlag"};
 const dayOf=ts=>iso(new Date(ts));
-let S=CONFIGURED?{signedIn:false,loading:LIVE,broken:!LIVE,filter:"all",docs:[],updates:[],client:null,crew:"mid",heat:"yes",orders:[]}:seed(), lang="en", scheme="ivory", fs=16, tab="home", sheet=null, pending=[], lastFocus=null;
+let S=CONFIGURED?{signedIn:false,loading:LIVE,broken:!LIVE,filter:"all",docs:[],updates:[],client:null,crew:"mid",heat:"yes",orders:[],courses:[],questions:[],emps:[],atts:[]}:seed(), lang="en", scheme="ivory", fs=16, tab="home", sheet=null, pending=[], lastFocus=null;
 try{const p=JSON.parse(localStorage.getItem("nbw-portal-prefs-v2")||"{}"); if(p.lang) lang=p.lang; if(p.fs) fs=p.fs; if(p.scheme) scheme=p.scheme;}catch(e){}
 const savePrefs=()=>{try{localStorage.setItem("nbw-portal-prefs-v2",JSON.stringify({lang,fs,scheme}))}catch(e){}};
 const applyPrefs=()=>{const r=document.documentElement; r.style.setProperty("--fs",fs+"px"); if(scheme==="ivory") r.removeAttribute("data-scheme"); else r.setAttribute("data-scheme",scheme);};
@@ -209,19 +260,26 @@ function docRow(d,primaryId){
 
 async function loadLive(){
   const {data:{session}}=await sb.auth.getSession();
-  if(!session){Object.assign(S,{signedIn:false,loading:false,client:null,docs:[],updates:[],orders:[]}); render(); return;}
+  if(!session){Object.assign(S,{signedIn:false,loading:false,client:null,docs:[],updates:[],orders:[],emps:[],atts:[]}); render(); return;}
   const links=await sb.from("client_users").select("client_id").eq("user_id",session.user.id).limit(1);
   if(links.error) return liveFail();
-  if(!links.data.length){Object.assign(S,{signedIn:true,loading:false,noFile:true,client:null,docs:[],updates:[],orders:[]}); render(); return;}
+  if(!links.data.length){Object.assign(S,{signedIn:true,loading:false,noFile:true,client:null,docs:[],updates:[],orders:[],emps:[],atts:[]}); render(); return;}
   const cid=links.data[0].client_id;
-  const [c,d,e,u,o,k]=await Promise.all([
+  const [c,d,e,u,o,k,em,co,qu,at]=await Promise.all([
     sb.from("clients").select("*").eq("id",cid).single(),
     sb.from("documents").select("*").eq("client_id",cid),
     sb.from("document_events").select("*").eq("client_id",cid).order("created_at",{ascending:false}).limit(500),
     sb.from("updates").select("*").eq("client_id",cid).order("created_at",{ascending:false}).limit(50),
     sb.from("orders").select("*").eq("client_id",cid).order("created_at",{ascending:false}),
-    sb.from("packages").select("*")]);
-  if([c,d,e,u,o,k].some(x=>x.error)) return liveFail();
+    sb.from("packages").select("*"),
+    sb.from("employees").select("*").eq("client_id",cid).order("full_name"),
+    sb.from("courses").select("*").order("sort"),
+    sb.from("course_questions").select("*").order("position"),
+    sb.from("attestations").select("*").eq("client_id",cid)]);
+  if([c,d,e,u,o,k,em,co,qu,at].some(x=>x.error)) return liveFail();
+  S.emps=em.data.map(x=>({id:x.id,name:x.full_name,job:x.job_title,active:x.active}));
+  S.courses=co.data; S.questions=qu.data;
+  S.atts=at.data.map(x=>({emp:x.employee_id,course:x.course_id,on:x.completed_on,signed:x.signed_name}));
   S.client={id:cid,first:c.data.contact_first,biz:c.data.business_name,plan:c.data.plan,price:c.data.price_text,discountPct:c.data.discount_pct||0};
   // The database's prices win, so the app shows what the order will charge
   k.data.forEach(r=>{const p=PKGS.find(x=>x.id===r.id); if(p) p.price=r.price_cents/100;});
@@ -299,11 +357,68 @@ function viewSafe(){
       ${reqs.length?`<ul class="reqs">${reqs.map(([k,c],i)=>item(i+1,k,c)).join("")}</ul>`:""}
       ${heat==="unsure"?`<div class="callout" style="margin:0 16px 12px">${L.heatUnsure}</div>`:""}</section>
     <p class="fine">${L.reqFine}</p>
+    ${viewCrew()}
     ${S.orders.length?`<h2 class="section-h">${L.ordTitle}</h2><section class="panel"><ul class="feed">${S.orders.map(o=>`<li><div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"><strong>${L[PKGS.find(p=>p.id===o.pkg).k]}</strong><span class="pill ${o.status==="delivered"||o.status==="confirmed"?"p-ok":o.status==="cancelled"?"p-soon":"p-review"}">${L.ord[o.status||"requested"]}</span></div><time>${fmt(o.at)} · ${esc(o.note||((o.status||"requested")==="requested"?L.ordReqM:""))}</time></li>`).join("")}</ul></section>`:""}
     <h2 class="section-h">${L.pkgTitle}</h2>
     <section class="panel"><p class="fine" style="padding-top:12px">${disc?L.pkgLead(esc(S.client.plan||"NBW"),pct()):L.pkgLeadNone}</p><ul class="list">${list.map(pkgRow).join("")}</ul></section>
     <p class="fine">${L.bigCrew}</p></div>`;
 }
+// Training standing comes from the latest signed check, never stored
+const addMonths=(s,m)=>{const [y,mo,d]=s.split("-").map(Number), x=new Date(y,mo-1+m,d); if(x.getDate()!==d) x.setDate(0); return iso(x);};
+const ctitle=c=>lang==="es"?c.title_es:c.title;
+function standing(empId,c){
+  let last=null; S.atts.forEach(a=>{ if(a.emp===empId&&a.course===c.id&&(!last||a.on>last.on)) last=a; });
+  if(!last) return {k:"none"};
+  const due=addMonths(last.on,c.renew_months), l=Math.round((new Date(due+"T00:00:00")-TODAY)/DAY);
+  return {k:l<0?"over":l<=30?"soon":"ok",last:last.on,due,signed:last.signed};
+}
+const TRP={ok:"p-ok",soon:"p-soon",over:"p-need",none:"p-need"};
+function viewCrew(){
+  const L=t(), emps=S.emps.filter(e=>e.active);
+  return `<h2 class="section-h">${L.crewTitle}</h2>
+    <section class="panel"><p class="fine" style="padding-top:12px">${L.crewLead}</p>
+    <ul class="list" id="crew">${emps.length?emps.map(e=>`<li class="doc"><button class="doc-main" data-emp="${esc(e.id)}">
+        <span class="ico c-wc">${ic("people")}</span>
+        <span class="doc-text"><span class="n">${esc(e.name)}</span>${e.job?`<span class="m">${esc(e.job)}</span>`:""}
+          <span style="display:flex;flex-wrap:wrap;gap:6px">${S.courses.map(c=>{const st=standing(e.id,c); return `<span class="pill ${TRP[st.k]}">${esc(ctitle(c))}: ${L.tr[st.k]}</span>`;}).join("")}</span></span>
+        ${ic("chev","chev")}</button></li>`).join(""):`<li class="empty">${L.crewNone}</li>`}</ul>
+    <div style="padding:4px 16px 16px"><button class="btn btn-line" data-addemp>${L.addEmp}</button></div></section>`;
+}
+function sheetEmp(id){
+  const L=t(), e=S.emps.find(x=>x.id===id);
+  return `<div class="sheet-h"><div style="display:flex;gap:12px;align-items:center;min-width:0"><span class="ico c-wc">${ic("people")}</span><h2>${esc(e.name)}</h2></div><button class="x" data-close aria-label="${L.close}">×</button></div>
+   ${S.courses.map(c=>{const st=standing(e.id,c); return `<div class="group"><span class="group-l">${esc(ctitle(c))}</span>
+     <dl class="facts"><dt>${L.status}</dt><dd><span class="pill ${TRP[st.k]}">${L.tr[st.k]}</span></dd><dt>${L.lastDone}</dt><dd>${st.last?fmt(st.last):"—"}</dd><dt>${L.dueAgain}</dt><dd>${st.due?fmt(st.due):"—"}</dd></dl>
+     <button class="btn ${st.k==="ok"?"btn-line":"btn-primary"}" data-check="${esc(c.id)}" data-for="${esc(e.id)}">${L.takeCheck(esc(ctitle(c)))}</button></div>`;}).join("")}
+   <button class="link" data-archive="${esc(e.id)}" style="color:var(--need)">${L.archive}</button>`;
+}
+function sheetCheck(empId,cid,err,signed){
+  const L=t(), e=S.emps.find(x=>x.id===empId), c=S.courses.find(x=>x.id===cid);
+  const qs=S.questions.filter(q=>q.course_id===cid).sort((a,b)=>a.position-b.position);
+  const pts=(lang==="es"?c.lesson_es:c.lesson)||[];
+  return `<div class="sheet-h"><h2>${L.chkTitle(esc(ctitle(c)))}</h2><button class="x" data-close aria-label="${L.close}">×</button></div>
+   <form id="chk-form" data-check-emp="${esc(empId)}" data-check-course="${esc(cid)}" style="display:grid;gap:16px">
+   <p class="lead" style="margin:0"><strong>${L.chkFor(esc(e.name))}</strong></p>
+   <div class="err" id="chk-err" aria-live="assertive" tabindex="-1">${esc(err||"")}</div>
+   <div class="group"><span class="group-l">${L.readFirst}</span><ol class="steps">${pts.map(p=>`<li>${esc(p)}</li>`).join("")}</ol>
+     ${c.lesson_url?`<a class="link link-more" href="${esc(c.lesson_url)}" target="_blank" rel="noopener">${L.fullLesson}${ic("chev")}</a>`:""}</div>
+   <label class="f" style="display:flex;gap:10px;align-items:center;font-size:1rem;color:var(--ink)"><input type="checkbox" name="read" required style="width:22px;height:22px;accent-color:var(--tint)"> ${L.iRead}</label>
+   ${qs.map((q,i)=>`<fieldset style="border:0;margin:0;padding:0;display:grid;gap:8px"><legend style="font-weight:600;margin-bottom:6px">${i+1}. ${esc(lang==="es"?q.prompt_es:q.prompt)}</legend>
+     ${(lang==="es"?q.options_es:q.options).map((o,oi)=>`<label style="display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:var(--bw) solid var(--sep);border-radius:10px;padding:10px 12px;cursor:pointer"><input type="radio" name="q${q.position}" value="${oi}" required style="margin-top:4px;accent-color:var(--tint)"> <span>${esc(o)}</span></label>`).join("")}</fieldset>`).join("")}
+   <label class="f" for="chk-sig">${L.sig}<input id="chk-sig" name="sig" type="text" required maxlength="80" autocomplete="off" value="${esc(signed||"")}"></label>
+   <p class="fine" style="padding:0 4px">${L.sigFine}</p>
+   <button class="btn btn-primary btn-lg" type="submit">${L.chkSubmit}</button></form>`;
+}
+function sheetAddEmp(err){
+  const L=t();
+  return `<div class="sheet-h"><h2>${L.addEmp}</h2><button class="x" data-close aria-label="${L.close}">×</button></div>
+   <form id="emp-form" style="display:grid;gap:16px">
+   <label class="f" for="emp-name">${L.empName}<input id="emp-name" type="text" required maxlength="80" autocomplete="off"></label>
+   <label class="f" for="emp-job">${L.empJob}<input id="emp-job" type="text" maxlength="80" autocomplete="off"></label>
+   <div class="err" aria-live="polite">${esc(err||"")}</div>
+   <button class="btn btn-primary btn-lg" type="submit">${L.empAdd}</button></form>`;
+}
+
 function sheetOrder(id){
   const L=t(), p=PKGS.find(x=>x.id===id), price=yourPrice(p), start=Math.round(price/2), disc=pct()>0;
   return `<div class="sheet-h"><h2>${L.oSheet(L[p.k])}</h2><button class="x" data-close aria-label="${L.close}">×</button></div>
@@ -375,7 +490,7 @@ function render(){
   document.documentElement.lang=lang;
   const dn=document.getElementById("demo-note"); dn.textContent=L.demo; dn.hidden=CONFIGURED;
   const app=document.getElementById("app");
-  const sheetHtml = sheet?`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grabber" aria-hidden="true"></div>${sheet.type==="up"?sheetUpload(sheet.id):sheet.type==="menu"?sheetMenu():sheet.type==="install"?sheetInstall():sheet.type==="order"?sheetOrder(sheet.id):sheetDetail(sheet.id)}</div></div>`:"";
+  const sheetHtml = sheet?`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grabber" aria-hidden="true"></div>${sheet.type==="up"?sheetUpload(sheet.id):sheet.type==="menu"?sheetMenu():sheet.type==="install"?sheetInstall():sheet.type==="order"?sheetOrder(sheet.id):sheet.type==="emp"?sheetEmp(sheet.id):sheet.type==="check"?sheetCheck(sheet.emp,sheet.course,sheet.err,sheet.signed):sheet.type==="addemp"?sheetAddEmp(sheet.err):sheetDetail(sheet.id)}</div></div>`:"";
   const bare=body=>`<header class="app"><div class="bar">${scheme==="contrast"?LOGO_ON_LIGHT:LOGO}<button class="menu-btn" id="menu" aria-label="${L.menu}">${ic("menu")}<span>${L.menu}</span></button></div></header>`+body+sheetHtml;
   if(S.loading){app.innerHTML=bare(viewStatus(L.loading)); return;}
   if(NOT_READY){app.innerHTML=bare(viewStatus(`${L.notReady}<br><br>${esc(CFG.contactPhone||"(702) 343-2387")}`)); return;}
@@ -392,7 +507,7 @@ function render(){
    <nav class="bottom" role="tablist">${tabBtns}</nav>
    ${sheetHtml}`;
   if(sheet?.type==="up") wireUpload();
-  if(sheet){ const first=document.querySelector(".sheet select, .sheet textarea, .sheet .x"); first&&first.focus(); }
+  if(sheet){ const errEl=document.querySelector(".sheet #chk-err"); const first=errEl&&errEl.textContent?errEl:document.querySelector(".sheet select, .sheet textarea, .sheet input[type=text], .sheet .x"); first&&first.focus(); }
   else if(lastFocus){ const el=document.querySelector(lastFocus); el&&el.focus({preventScroll:true}); lastFocus=null; }
 }
 
@@ -458,6 +573,15 @@ document.addEventListener("click",e=>{
   if(b=g("[data-crew]")){S.crew=b.dataset.crew; render(); return;}
   if(b=g("[data-heat]")){S.heat=b.dataset.heat; render(); return;}
   if(b=g("[data-order]")){sheet={type:"order",id:b.dataset.order}; render(); return;}
+  if(b=g("[data-emp]")){sheet={type:"emp",id:b.dataset.emp}; render(); return;}
+  if(b=g("[data-check]")){sheet={type:"check",emp:b.dataset.for,course:b.dataset.check}; render(); return;}
+  if(g("[data-addemp]")){sheet={type:"addemp"}; render(); return;}
+  if(b=g("[data-archive]")){
+    const id=b.dataset.archive, done=()=>{const e=S.emps.find(x=>x.id===id); if(e) e.active=false; sheet=null; render(); toast(t().archived);};
+    if(!LIVE) return done();
+    sb.from("employees").update({active:false}).eq("id",id).then(({error})=>{ if(error) toast(t().chkFail); else done(); });
+    return;
+  }
   if(b=g("#o-send")){
     const L=t(), pkg=b.dataset.pkg, note=document.getElementById("o-note").value.trim();
     if(LIVE){
@@ -475,6 +599,37 @@ document.addEventListener("click",e=>{
   }
 });
 document.addEventListener("submit",e=>{
+  if(e.target.id==="emp-form"){e.preventDefault();
+    const name=document.getElementById("emp-name").value.trim(), job=document.getElementById("emp-job").value.trim()||null;
+    if(!name){sheet={type:"addemp",err:t().empNeedName}; render(); return;}
+    const added=row=>{S.emps.push(row); S.emps.sort((a,b)=>a.name.localeCompare(b.name)); sheet=null; render();};
+    if(!LIVE) return added({id:Math.random().toString(36).slice(2,9),name,job,active:true});
+    sb.from("employees").insert({client_id:S.client.id,full_name:name,job_title:job}).select().single().then(({data,error})=>{
+      if(error){sheet={type:"addemp",err:t().chkFail}; render(); return;}
+      added({id:data.id,name:data.full_name,job:data.job_title,active:true});
+    });
+    return;
+  }
+  if(e.target.id==="chk-form"){e.preventDefault();
+    const f=e.target, L=t(), empId=f.dataset.checkEmp, cid=f.dataset.checkCourse, fd=new FormData(f), signed=String(fd.get("sig")||"").trim();
+    const qs=S.questions.filter(q=>q.course_id===cid).sort((a,b)=>a.position-b.position), answers=qs.map(q=>Number(fd.get("q"+q.position)));
+    const c=S.courses.find(x=>x.id===cid), emp=S.emps.find(x=>x.id===empId);
+    const result=r=>{
+      if(!r.passed){sheet={type:"check",emp:empId,course:cid,err:L.chkWrong(r.wrong),signed}; render(); return;}
+      S.atts.push({emp:empId,course:cid,on:r.completed_on,signed});
+      sheet={type:"emp",id:empId}; render(); toast(L.chkPassed(emp.name,ctitle(c),fmt(r.due_on)));
+    };
+    if(!LIVE){
+      const wrong=DEMO_ANSWERS[cid].filter((a,i)=>answers[i]!==a).length;
+      return result(wrong?{passed:false,wrong}:{passed:true,completed_on:iso(TODAY),due_on:addMonths(iso(TODAY),c.renew_months)});
+    }
+    const btn=f.querySelector("button[type=submit]"); btn.disabled=true;
+    sb.rpc("submit_check",{p_employee_id:empId,p_course_id:cid,p_answers:answers,p_signed_name:signed}).then(({data,error})=>{
+      if(error){sheet={type:"check",emp:empId,course:cid,err:L.chkFail,signed}; render(); return;}
+      result(data);
+    });
+    return;
+  }
   if(e.target.id==="signin"){e.preventDefault(); const email=document.getElementById("si-email").value.trim(), msg=document.getElementById("si-msg");
     if(!LIVE){msg.textContent=t().signSent(email); return;}
     sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}}).then(({error})=>{

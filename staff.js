@@ -22,7 +22,7 @@
 
   const S = {
     session: null, staff: null, loading: true, error: null, step: "email", email: "", msg: "",
-    clients: [], users: [], docs: [], events: [], updates: [], orders: [], packages: [],
+    clients: [], users: [], docs: [], events: [], updates: [], orders: [], packages: [], emps: [], atts: [], courses: [],
     open: null, note: null
   };
 
@@ -37,6 +37,19 @@
   const PILL = { review: ["p-review", "Under review"], need: ["p-need", "Action needed"], soon: ["p-soon", "Renew soon"], ok: ["p-ok", "Current"] };
   const pill = k => `<span class="pill ${PILL[k][0]}">${PILL[k][1]}</span>`;
   const pkgTitle = id => (S.packages.find(p => p.id === id) || { title: id }).title;
+
+  // Same rule as the client app: due 12 months after the latest signed check,
+  // "due soon" in the last 30 days
+  function trainingState(empId, c) {
+    const last = S.atts.filter(a => a.employee_id === empId && a.course_id === c.id).map(a => a.completed_on).sort().pop();
+    if (!last) return "none";
+    const [y, m, d] = last.split("-").map(Number);
+    const due = new Date(y, m - 1 + c.renew_months, d);
+    if (due.getDate() !== d) due.setDate(0);
+    const left = Math.round((due - today()) / DAY);
+    return left < 0 ? "over" : left <= 30 ? "soon" : "ok";
+  }
+  const TR = { ok: ["p-ok", "Current"], soon: ["p-soon", "Due soon"], over: ["p-need", "Overdue"], none: ["p-need", "No record"] };
 
   // ---------------------------------------------------------------------------
   // Data
@@ -58,11 +71,14 @@
           sb.from("document_events").select("*").order("created_at", { ascending: false }),
           sb.from("updates").select("*").order("created_at", { ascending: false }),
           sb.from("orders").select("*").order("created_at", { ascending: false }),
-          sb.from("packages").select("*").order("sort")
+          sb.from("packages").select("*").order("sort"),
+          sb.from("employees").select("*").order("full_name"),
+          sb.from("attestations").select("*"),
+          sb.from("courses").select("*").order("sort")
         ]);
         const bad = q.find(r => r.error);
         if (bad) throw bad.error;
-        [S.clients, S.users, S.docs, S.events, S.updates, S.orders, S.packages] = q.map(r => r.data);
+        [S.clients, S.users, S.docs, S.events, S.updates, S.orders, S.packages, S.emps, S.atts, S.courses] = q.map(r => r.data);
       }
     } catch (e) {
       S.error = errText(e);
@@ -174,6 +190,13 @@
       ${orders.length ? `<h2 class="section-h">Orders</h2><section class="panel"><ul class="reqs">${orders.map(orderCard).join("")}</ul></section>` : ""}
       <h2 class="section-h">Documents</h2>
       <section class="panel"><ul class="reqs">${docs.length ? docs.map(docCard).join("") : `<li class="empty">No documents yet.</li>`}</ul></section>
+      <h2 class="section-h">Crew training</h2>
+      <section class="panel"><ul class="reqs" id="crew">${(() => {
+        const crew = S.emps.filter(e => e.client_id === c.id && e.active);
+        if (!crew.length) return `<li class="empty">No employees added yet.</li>`;
+        return crew.map(e => `<li class="req" style="grid-template-columns:minmax(0,1fr)"><div><div class="n">${esc(e.full_name)}</div>${e.job_title ? `<div class="m">${esc(e.job_title)}</div>` : ""}
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">${S.courses.map(co => { const k = trainingState(e.id, co); return `<span class="pill ${TR[k][0]}">${esc(co.title)}: ${TR[k][1]}</span>`; }).join("")}</div></div></li>`).join("");
+      })()}</ul></section>
       <h2 class="section-h">Request a document</h2>
       <section class="panel" style="padding:16px"><form id="f-request" class="stack">
         <label class="f" for="r-en">Document name<input id="r-en" type="text" required maxlength="160" placeholder="Workers' comp policy"></label>

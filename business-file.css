@@ -225,3 +225,7 @@ textarea{min-height:84px;resize:vertical}
 .pkg .price{grid-column:1}
 @media (max-width:519px){.pkg{grid-template-columns:minmax(0,1fr)}.pkg .btn{justify-self:start}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* Crew training: course names can be long (especially in Spanish), so status pills wrap */
+#crew .pill{white-space:normal;line-height:1.3;align-items:baseline}
+#crew .pill::before{flex:none;transform:translateY(-1px)}
+#chk-err:empty{display:none}

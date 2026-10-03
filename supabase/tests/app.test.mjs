@@ -84,6 +84,44 @@ try {
     await page.click("#o-send");
     await page.waitForSelector(".toast");
     ok((await page.text("main")).includes("Your orders") && !(await page.$("[data-order=heat]")), "demo: order listed, can't be ordered twice");
+    // crew training
+    ok((await page.$$("#crew .doc")).length === 3, "demo: crew of three listed");
+    ok((await page.text("#crew [data-emp=e-luis]")).includes("Heat Illness Prevention: Due soon"), "demo: Luis's heat check due soon");
+    await page.click("[data-emp=e-sam]");
+    ok((await page.text(".sheet")).includes("No record"), "demo: Sam has no record");
+    await page.click(".sheet [data-check=heat]");
+    ok((await page.$$(".sheet ol.steps li")).length === 7 && !!(await page.$(".sheet a[href*='lessons.html#s7l1']")), "demo: check opens with the key points");
+    for (let q = 1; q <= 4; q++) await page.check(`.sheet input[name=q${q}][value="0"]`);
+    await page.check(".sheet input[name=read]");
+    await page.click(".sheet button[type=submit]");
+    ok((await page.text("#chk-err")) === "", "demo: an unsigned check can't be submitted");
+    await page.fill("#chk-sig", "Sam Patel");
+    await page.click(".sheet button[type=submit]");
+    await page.waitForFunction(() => document.getElementById("chk-err").textContent.includes("3 answers"));
+    ok((await page.inputValue("#chk-sig")) === "Sam Patel" && (await page.evaluate(() => document.activeElement.id)) === "chk-err", "demo: wrong answers explained, signature kept, focus on the message");
+    for (const [q, v] of [[1, 1], [2, 0], [3, 1], [4, 1]]) await page.check(`.sheet input[name=q${q}][value="${v}"]`);
+    await page.check(".sheet input[name=read]");
+    await page.click(".sheet button[type=submit]");
+    await page.waitForSelector(".toast:has-text('Sam Patel passed Heat Illness Prevention')");
+    ok(true, "demo: passing check confirmed");
+    await page.click(".sheet [data-close]");
+    ok((await page.text("#crew [data-emp=e-sam]")).includes("Heat Illness Prevention: Current"), "demo: Sam now current");
+    await page.click("[data-addemp]");
+    await page.fill("#emp-name", "Rosa Diaz");
+    await page.click("#emp-form button[type=submit]");
+    await page.waitForSelector("text=Rosa Diaz");
+    ok((await page.$$("#crew .doc")).length === 4, "demo: employee added");
+    await page.click("#crew button:has-text('Rosa Diaz')");
+    await page.click(".sheet [data-archive]");
+    await page.waitForSelector(".toast:has-text('Archived')");
+    ok((await page.$$("#crew .doc")).length === 3, "demo: employee archived");
+    // Spanish check
+    await page.click("#menu"); await page.click("[data-lang=es]"); await page.click("[data-close]");
+    await page.click("[data-emp=e-maria]");
+    await page.click(".sheet [data-check=hazcom]");
+    ok((await page.text(".sheet")).includes("¿Cuándo deben estar disponibles las Hojas de Datos de Seguridad") && (await page.text(".sheet")).includes("Lea la etiqueta antes de usar un químico"), "demo: check in Spanish");
+    await page.click(".sheet [data-close]");
+    await page.click("#menu"); await page.click("[data-lang=en]"); await page.click("[data-close]");
     ok(!(await page.text("nav.bottom")).includes("undefined"), "demo: tab labels complete");
     ok(await page.noSideScroll(), "demo: no sideways scroll");
     ok(page.outside.length === 0, "demo: sends nothing anywhere except the font request " + page.outside.join(", "));
@@ -142,6 +180,35 @@ try {
     const ord = await page.evaluate(() => window.__fake.db.orders.find(o => o.package_id === "heat"));
     ok(ord && ord.price_cents === 102000 && ord.deposit_cents === 51000 && ord.notes === "Two sites", "live: order priced by the server");
     ok(!(await page.$("[data-order=heat]")) && (await page.text("main")).includes("Requested"), "live: order shows as requested");
+
+    // crew training, live
+    ok((await page.$$("#crew .doc")).length === 1, "live: client's crew listed");
+    await page.click("[data-addemp]");
+    await page.fill("#emp-name", "Ana Ruiz");
+    await page.fill("#emp-job", "Laborer");
+    await page.click("#emp-form button[type=submit]");
+    await page.waitForSelector("#crew :text('Ana Ruiz')");
+    const ana = await page.evaluate(() => window.__fake.db.employees.find(e => e.full_name === "Ana Ruiz"));
+    ok(ana && ana.client_id === "11111111-1111-4111-8111-111111111111", "live: employee saved to this client");
+    await page.click("[data-emp=e-luis]");
+    await page.click(".sheet [data-check=heat]");
+    await page.check(".sheet input[name=q1][value='0']"); await page.check(".sheet input[name=q2][value='0']");
+    await page.check(".sheet input[name=read]");
+    await page.fill("#chk-sig", "Luis Ortega");
+    await page.click(".sheet button[type=submit]");
+    await page.waitForFunction(() => document.getElementById("chk-err").textContent.includes("1 answer is not right"));
+    ok(true, "live: server grades the check");
+    await page.check(".sheet input[name=q1][value='1']"); await page.check(".sheet input[name=q2][value='0']");
+    await page.check(".sheet input[name=read]");
+    await page.click(".sheet button[type=submit]");
+    await page.waitForSelector(".toast:has-text('passed')");
+    const att = await page.evaluate(() => window.__fake.db.attestations.find(a => a.employee_id === "e-luis"));
+    ok(att && att.signed_name === "Luis Ortega", "live: signed record saved");
+    await page.click(".sheet [data-close]");
+    await page.click(`[data-emp="${ana.id}"]`);
+    await page.click(".sheet [data-archive]");
+    await page.waitForSelector(".toast:has-text('Archived')");
+    ok((await page.evaluate(id => window.__fake.db.employees.find(e => e.id === id).active, ana.id)) === false, "live: employee archived, not deleted");
 
     // Spanish and other modes still work signed in
     await page.click("#menu"); await page.click("[data-lang=es]"); await page.click("[data-close]");
@@ -217,6 +284,7 @@ try {
 
     await page.click("[data-act=back]");
     await page.click("[data-open='22222222-2222-4222-8222-222222222222']");
+    ok((await page.text("#crew")).includes("Jo Rivera") && (await page.text("#crew")).includes("Heat Illness Prevention: Current") && (await page.text("#crew")).includes("Hazard Communication: No record"), "staff: crew training summary");
     const order = ".order[data-id=o-pool]";
     await page.selectOption(`${order} select[name=status]`, "confirmed");
     await page.fill(`${order} input[name=price]`, "abc");

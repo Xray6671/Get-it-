@@ -36,12 +36,16 @@ To serve it from nevadabusinesswatch.com, add the domain under **Settings → Pa
 The client app, in English and Spanish. Its code is `business-file.js` and `business-file.css`, configured by `business-file-config.js`; the database is in `supabase/`. Nothing links to it yet, and search engines are told not to index it.
 
 - **Clients** sign in with a one-time code sent to their email (no passwords). They see their licenses, insurance and other documents with what needs action, upload new copies, read updates from NBW, and use the **Safety** tab: it shows what Nevada requires for their crew size and heat exposure (NRS 618.383 and Regulation R131-24) and lets them order a Safety & Heat package.
+- **Crew training** is on the Safety tab. Clients add their employees; each knowledge check (Heat Illness Prevention, Hazard Communication) shows key points to read, asks the employee to confirm they read them, then asks the questions, and the employee signs by typing their name. Everything is in English and Spanish. The database grades the answers, so the answer key never reaches the browser; records can only be added; employees are archived, never deleted. A check is due again 12 months after it was passed.
 - **Orders** use the prices on `safety.html`. Clients on a plan get 15% off, rounded to whole dollars. The database sets the price; no payment is taken in the app. An order is a request that NBW confirms, reprices if needed (for example the founding rate) and invoices.
-- **NBW staff** use `staff.html`: the review queue, each client's documents and files, accepting an upload (with its expiration date) or sending it back with a note, requesting missing documents, posting updates, confirming orders, adding clients and giving people access.
+- **NBW staff** use `staff.html`: the review queue, each client's documents, files and crew training status, accepting an upload (with its expiration date) or sending it back with a note, requesting missing documents, posting updates, confirming orders, adding clients and giving people access.
 
 Every upload stays **Under review** until someone at NBW accepts it, so someone has to check `staff.html` regularly. The database records who reviewed each document or handled each order, and when. Nobody can delete stored files from the browser. Each client can store up to 500 files; if an upload's record fails, the file is left over, and staff can list these with `select * from public.orphan_files();` in the SQL Editor and delete them in **Storage → client-files**.
 
-Not built yet: crew safety training (knowledge checks with signatures), emails to staff about new uploads and orders, reminder emails before documents expire, and card payments.
+Not built yet: emails to staff about new uploads and orders, reminder emails before documents expire, and card payments.
+
+### Changing the knowledge checks
+Edit the courses, questions and answers at the end of `supabase/schema.sql` and run the file again in the SQL Editor. Each question has English and Spanish text; have a native speaker review the Spanish. Answers live in a `private` table that browsers can't read. If you remove a question, also delete its row from `public.course_questions`. The demo keeps its own copy of the content in `business-file.js` (`DEMO_COURSES`, `DEMO_QUESTIONS`).
 
 ### Demo (`business-file-demo.html`)
 The same app on example data: Marco from Desert Ridge Roofing. It has no config file, so it never connects to anything. Uploads and orders stay in the browser tab, and reloading starts over. The real `business-file.html` never shows example data: until Supabase is set up, it says the Business File isn't open yet.

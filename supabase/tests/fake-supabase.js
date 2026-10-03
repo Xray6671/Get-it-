@@ -14,6 +14,7 @@ window.supabase.createClient = function () {
     "office@roof.example": "u-office"
   };
   const STAFF = ["u-staff"];
+  const KEY = { heat: [1, 0], hazcom: [1] };
   const A = "11111111-1111-4111-8111-111111111111", B = "22222222-2222-4222-8222-222222222222";
   const db = {
     clients: [
@@ -39,6 +40,20 @@ window.supabase.createClient = function () {
       { id: "review", title: "Kit + Expert Review", price_cents: 39900, billing: "one_time", done_for_you: false, active: true, sort: 4 },
       { id: "kit", title: "DIY Compliance Kit", price_cents: 19900, billing: "one_time", done_for_you: false, active: true, sort: 5 }
     ],
+    employees: [
+      { id: "e-luis", client_id: A, full_name: "Luis Ortega", job_title: "Roofer", active: true, created_at: now() },
+      { id: "e-jo", client_id: B, full_name: "Jo Rivera", job_title: "Pool tech", active: true, created_at: now() }
+    ],
+    courses: [
+      { id: "heat", title: "Heat Illness Prevention", title_es: "Prevención de enfermedades por calor", renew_months: 12, lesson: ["Drink water often.", "Rest in the shade."], lesson_es: ["Tome agua seguido.", "Descanse en la sombra."], lesson_url: "https://nevadabusinesswatch.com/lessons.html#s7l1", sort: 1 },
+      { id: "hazcom", title: "Hazard Communication", title_es: "Comunicación de peligros", renew_months: 12, lesson: ["Read the label."], lesson_es: ["Lea la etiqueta."], lesson_url: null, sort: 2 }
+    ],
+    course_questions: [
+      { course_id: "heat", position: 1, prompt: "Q1 heat", prompt_es: "P1 calor", options: ["a", "b", "c"], options_es: ["a", "b", "c"] },
+      { course_id: "heat", position: 2, prompt: "Q2 heat", prompt_es: "P2 calor", options: ["a", "b", "c"], options_es: ["a", "b", "c"] },
+      { course_id: "hazcom", position: 1, prompt: "Q1 hazcom", prompt_es: "P1 químicos", options: ["a", "b", "c"], options_es: ["a", "b", "c"] }
+    ],
+    attestations: [{ id: "a-jo", client_id: B, employee_id: "e-jo", course_id: "heat", completed_on: day(-30), signed_name: "Jo Rivera", created_at: now() }],
     orders: [{ id: "o-pool", client_id: B, package_id: "kit", status: "requested", price_cents: 19900, deposit_cents: 19900, notes: "Please send in Spanish", staff_note: null, created_at: now() }]
   };
   const storage = {};
@@ -54,7 +69,7 @@ window.supabase.createClient = function () {
   const visible = (table, r) => {
     if (!session) return false;
     if (isStaff()) return true;
-    if (table === "packages") return true;
+    if (["packages", "courses", "course_questions"].includes(table)) return true;
     if (table === "client_users") return r.user_id === uid();
     if (table === "clients") return member(r.id);
     return member(r.client_id);
@@ -67,15 +82,18 @@ window.supabase.createClient = function () {
       window.__fake.calls.push(`${table}:${q.op}`);
       if (q.op === "insert") {
         const row = Object.assign({ id: uuid(), created_at: now() }, q.values);
-        const ok = isStaff() && ["clients", "updates"].includes(table) && (table !== "updates" || row.author_id === uid());
+        if (table === "employees" && row.active === undefined) row.active = true;
+        const ok = (isStaff() && ["clients", "updates"].includes(table) && (table !== "updates" || row.author_id === uid()))
+          || (table === "employees" && member(row.client_id));
         if (!ok) return { data: null, error: denied };
         db[table].push(row);
         return q.returning ? { data: structuredClone(row), error: null } : { data: null, error: null };
       }
       let rows = db[table].filter(r => visible(table, r) && q.filters.every(([c, v]) => r[c] === v));
       if (q.op === "update") {
-        if (!isStaff() || table !== "orders") rows = [];
-        rows.forEach(r => Object.assign(r, q.values, { handled_by: uid(), handled_at: now() }));
+        if (table === "orders" && isStaff()) rows.forEach(r => Object.assign(r, q.values, { handled_by: uid(), handled_at: now() }));
+        else if (table === "employees") { rows = rows.filter(r => member(r.client_id)); rows.forEach(r => Object.assign(r, q.values)); }
+        else rows = [];
       }
       rows = rows.slice();
       if (q.order) { const [c, asc] = q.order; rows.sort((a, b) => (a[c] > b[c] ? 1 : a[c] < b[c] ? -1 : 0) * (asc ? 1 : -1)); }
@@ -134,6 +152,19 @@ window.supabase.createClient = function () {
       db.documents.push(d);
       db.document_events.push({ id: uuid(), client_id: d.client_id, document_id: d.id, kind: "requested", note: a.p_note, created_at: now() });
       return d.id;
+    },
+    submit_check(a) {
+      const emp = db.employees.find(e => e.id === a.p_employee_id && e.active);
+      if (!emp || !member(emp.client_id)) throw denied;
+      if (!String(a.p_signed_name || "").trim()) throw { message: "The employee must type their name to sign" };
+      const key = KEY[a.p_course_id];
+      if (!key || a.p_answers.length !== key.length) throw { message: "Answer every question" };
+      const wrong = key.filter((k, i) => a.p_answers[i] !== k).length;
+      if (wrong) return { passed: false, wrong };
+      const on = day(0);
+      db.attestations.push({ id: uuid(), client_id: emp.client_id, employee_id: emp.id, course_id: a.p_course_id, completed_on: on, signed_name: a.p_signed_name.trim(), created_at: now() });
+      const due = new Date(on + "T12:00:00"); due.setFullYear(due.getFullYear() + 1);
+      return { passed: true, wrong: 0, completed_on: on, due_on: due.toISOString().slice(0, 10) };
     },
     grant_access(a) {
       if (!isStaff()) throw denied;
