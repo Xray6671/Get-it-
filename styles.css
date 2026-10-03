@@ -152,7 +152,7 @@ footer .brandmark-logo{display:inline-flex}
 .svc-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:24px}
 .svc-grid>*{flex:1 1 var(--fb,280px);max-width:360px}
 .svc-card:hover{transform:translateY(-5px);box-shadow:0 18px 34px -18px rgba(27,33,63,.22)}
-.svc-card h3{font-size:1.25rem;margin-bottom:4px}
+.svc-card h3,.svc-card h2.svc-title{font-size:1.25rem;margin-bottom:4px}
 .svc-tag{color:var(--gold-lt);font-style:italic;font-family:var(--serif);font-size:1.02rem;margin:0 0 10px}
 .svc-desc{color:var(--muted);font-size:.94rem;margin:0 0 16px}
 .svc-card details{margin:0 0 16px}
@@ -203,7 +203,7 @@ footer .brandmark-logo{display:inline-flex}
 .about-2col{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 @media(max-width:640px){.about-2col{grid-template-columns:1fr}}
 .disclaimer-card{margin-top:36px;background:var(--bg);border-left:3px solid var(--gold);border-radius:0 14px 14px 0;padding:24px}
-.disclaimer-card h4{margin:0 0 10px;font-family:var(--sans);font-size:1rem}
+.disclaimer-card h4,.disclaimer-card h3{margin:0 0 10px;font-family:var(--sans);font-size:1rem;letter-spacing:0}
 .disclaimer-card p{font-size:.85rem;color:var(--muted);margin:0 0 12px}
 .disclaimer-card p:last-child{margin:0}
 .commitment{margin-top:44px;text-align:center}

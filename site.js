@@ -122,3 +122,19 @@
     io.observe(el);
   });
 })();
+(function(){
+  var boxes = document.querySelectorAll('.lesson-item ul.lchecklist input[type="checkbox"]');
+  if(!boxes.length) return;
+  var KEY = 'nbw-lesson-checks', saved = {};
+  try{ saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }catch(e){}
+  boxes.forEach(function(box){
+    var lesson = box.closest('.lesson-item');
+    var list = lesson.querySelectorAll('ul.lchecklist input[type="checkbox"]');
+    var id = lesson.id + ':' + Array.prototype.indexOf.call(list, box);
+    if(saved[id]) box.checked = true;
+    box.addEventListener('change', function(){
+      if(box.checked) saved[id] = 1; else delete saved[id];
+      try{ localStorage.setItem(KEY, JSON.stringify(saved)); }catch(e){}
+    });
+  });
+})();
