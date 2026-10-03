@@ -1,8 +1,11 @@
 -- Minimal stand-ins for the parts of Supabase that schema.sql uses, so the
 -- schema and its access rules can be tested on plain Postgres 16.
 -- Never run this on a real Supabase project.
-create role anon nologin;
-create role authenticated nologin;
+-- Roles are shared by every database on the server, so they may already exist
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
+end $$;
 
 create schema auth;
 create table auth.users (id uuid primary key);
