@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>Compliance Hub — Nevada Business Watch</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --warning: #b45309;
+      --soft: #f1f5f9;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 20px 16px; max-width: 960px; margin: 0 auto; line-height: 1.45; }
+    a { color: var(--primary); }
+
+    header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    h2 { font-size: 1.2rem; margin-bottom: 4px; }
+    h3 { font-size: 1.05rem; }
+    .kicker { font-size: 0.875rem; color: var(--muted); margin-top: 2px; }
+
+    nav { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-wrap: wrap; }
+    .tab-btn { background: none; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 500; cursor: pointer; color: var(--muted); font-size: 0.95rem; }
+    .tab-btn.active { background: #e0e7ff; color: var(--primary); }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .narrow { max-width: 420px; margin: 40px auto; }
+    .doc { border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 16px; }
+    .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .note { background: var(--soft); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin: 12px 0; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+    .stat { border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .stat strong { font-size: 1.4rem; display: block; }
+
+    .table-wrap { overflow-x: auto; margin-top: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.875rem; font-weight: 500; text-decoration: none; color: var(--text); }
+    .btn:hover { background: var(--soft); }
+    .btn:disabled { opacity: 0.6; cursor: wait; }
+    .btn-primary { background: var(--primary); color: #fff; border: none; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-small { padding: 4px 10px; font-size: 0.8rem; }
+    .btn-link { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 0.875rem; padding: 0; text-decoration: underline; }
+
+    .pill { padding: 4px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
+    .pill-ok { background: #dcfce7; color: var(--success); }
+    .pill-warn { background: #fef3c7; color: var(--warning); }
+    .pill-err { background: #fee2e2; color: var(--danger); }
+    .pill-muted { background: var(--soft); color: var(--muted); }
+
+    label.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; font-weight: 500; }
+    input[type=text], input[type=email], input[type=password], select, input[type=file] { width: 100%; border: 1px solid var(--border); padding: 8px; border-radius: 4px; font-size: 0.95rem; background: #fff; }
+
+    /* Phones: each table row becomes a small card so buttons stay in view */
+    @media (max-width: 640px) {
+      thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tr { border-bottom: 1px solid var(--border); padding: 10px 0; }
+      td { border: none; padding: 3px 0; display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+      td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.8rem; font-weight: 600; text-align: left; }
+      td:not([data-label]) { justify-content: flex-end; padding-top: 8px; }
+    }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .modal { background: #fff; width: 100%; max-width: 560px; border-radius: 8px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    fieldset { border: none; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    legend { font-weight: 600; margin-bottom: 4px; }
+    .opt { display: block; margin-top: 6px; }
+
+    .msg { font-size: 0.9em; padding: 8px 12px; border-radius: 4px; }
+    .msg-err { background: #fee2e2; color: var(--danger); }
+    .msg-ok { background: #dcfce7; color: var(--success); }
+    .fine { font-size: 0.8em; color: var(--muted); }
+    footer { margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div id="app"><p class="kicker">Loading…</p></div>
+
+  <footer class="fine">
+    Knowledge checks are self-attestations. They help employees review the material but do not replace your written safety program, job hazard analysis, designated person or signed training records. Nevada Business Watch is a private company, not affiliated with Nevada OSHA, and this is not legal advice.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+          integrity="sha384-Rj26LVGvoeRVR6+mwQmFfcR3QOBEwT+ZmuCWpuiqeTzJpCs0ER4ITAWGb4Hiy3Ok"
+          crossorigin="anonymous"></script>
+  <script src="hub-config.js"></script>
+  <script src="hub.js"></script>
+</body>
+</html>
