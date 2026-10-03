@@ -115,10 +115,10 @@ footer .brandmark{color:#fff;justify-content:center;margin-bottom:16px}
 footer p{max-width:74ch;margin:0 auto 10px;color:#7f8ba0}
 footer .notlist{list-style:none;padding:0;margin:0 0 16px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 20px;color:#9fb0c8;font-weight:600}
 .banner{background:#fff3cd;border-bottom:1px solid #f0d38a;color:#7a5b00;padding:12px 0;font-size:.88rem;font-weight:600;text-align:center}
-.brandmark-logo{background:#0b1526;border-radius:8px;padding:8px 14px;line-height:0}
-.brandmark-logo img{display:block;height:46px;width:auto;transition:height .25s cubic-bezier(.2,0,0,1)}
-header.is-scrolled .brandmark-logo img{height:34px}
-footer .brandmark-logo img{height:36px}
+.brandmark-logo{background:#0b1526;border-radius:8px;padding:4px 8px;line-height:0}
+.brandmark-logo img{display:block;height:54px;width:auto;transition:height .25s cubic-bezier(.2,0,0,1)}
+header.is-scrolled .brandmark-logo img{height:42px}
+footer .brandmark-logo img{height:48px}
 footer .brandmark-logo{display:inline-flex}
 /* Hidden-risk section */
 .risk{background:var(--bg)}
@@ -262,3 +262,13 @@ nav a.active::after{transform:scaleX(1)}
 
 .skip-link{position:absolute;left:12px;top:-60px;z-index:1000;background:var(--gold);color:var(--blue-dk);font:700 .95rem var(--sans);padding:10px 16px;border-radius:8px;text-decoration:none}
 .skip-link:focus{top:12px}
+
+.home-founder{background:var(--surface);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.hf-card{display:flex;gap:44px;align-items:center;max-width:960px;margin:0 auto}
+.hf-card img{width:280px;height:auto;aspect-ratio:540/690;object-fit:cover;border-radius:16px;flex:none;box-shadow:0 22px 44px -22px rgba(0,0,0,.6)}
+.hf-card h2{margin-bottom:12px}
+.hf-creds{list-style:none;margin:18px 0 24px;padding:0;display:grid;gap:8px}
+.hf-creds li{position:relative;padding-left:24px;color:var(--ink)}
+.hf-creds li::before{content:"\2713";position:absolute;left:0;color:var(--gold-lt);font-weight:800}
+@media(max-width:760px){.hf-card{flex-direction:column;gap:24px;text-align:center}.hf-card img{width:200px}.hf-creds{text-align:left;max-width:360px;margin-left:auto;margin-right:auto}}
+@media(max-width:520px){.trust-badges{display:none}}

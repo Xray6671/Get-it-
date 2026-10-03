@@ -62,6 +62,14 @@
 .svc-icon svg{width:27px;height:27px;fill:none;stroke:var(--gold-lt);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .ts-btn{background:none;border:1px solid var(--line);border-radius:6px;color:var(--muted);font-family:var(--sans);font-weight:800;line-height:1;padding:4px 7px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .15s cubic-bezier(.2,0,0,1),border-color .15s cubic-bezier(.2,0,0,1),transform .1s cubic-bezier(.2,0,0,1)}
 .toplang-bar{background:var(--blue-dk,#12172c);color:#fff;text-align:center;padding:9px 14px;font:700 .82rem 'Inter',sans-serif;letter-spacing:.02em}
+@media(max-width:640px){
+  #services .svc-card{padding:22px 20px}
+  #services .svc-card details{display:none}
+  #services .svc-icon{width:44px;height:44px;margin-bottom:10px}
+  .step-card{padding:22px 20px}
+  .quotelist{grid-template-columns:1fr 1fr;gap:10px}
+  .quotelist li{padding:12px 14px;font-size:.92rem}
+}
 </style>
 <script>(function(){try{var s=localStorage.getItem('nbw-text-scale');var steps=[16,18,20];var n=parseInt(s,10);if(!isNaN(n)&&n>=0&&n<steps.length){document.documentElement.style.fontSize=steps[n]+'px';}}catch(e){}})();</script>
 <script type="application/ld+json">{
@@ -91,7 +99,7 @@
 <header>
   <div class="wrap bar">
     <a class="brandmark brandmark-logo" href="index.html" aria-label="Nevada Business Watch">
-      <img src="assets/logo.jpg" alt="Nevada Business Watch logo" width="396" height="140">
+      <img src="assets/logo.jpg" alt="Nevada Business Watch logo" width="378" height="104">
     </a>
     <nav id="siteNav"><ul>
       <li><a class="navlink active" href="index.html" aria-current="page">Home</a></li>
@@ -196,10 +204,30 @@
   </div>
 </section>
 
+<section id="founder" class="home-founder">
+  <div class="wrap">
+    <div class="hf-card">
+      <img src="assets/founder.jpg" width="540" height="690" loading="lazy" alt="Jorge Rangel, founder of Nevada Business Watch">
+      <div>
+        <p class="eyebrow">04 &mdash; Who Watches Your File</p>
+        <h2>Jorge Rangel, <span class="accent">Founder</span></h2>
+        <p class="lead">More than 30 years in military, federal, law-enforcement, and regulatory work, spent reviewing records and catching the details others miss.</p>
+        <ul class="hf-creds">
+          <li>Master of Public Administration</li>
+          <li>FBI National Academy, intelligence analysis training</li>
+          <li>Nevada POST-certified law enforcement officer</li>
+          <li>Works with you in English or Espa&ntilde;ol</li>
+        </ul>
+        <p><a class="btn btn-outline" href="about.html">Read Jorge&rsquo;s story</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="services">
   <div class="wrap">
     <div class="head-c">
-      <p class="eyebrow">04 &mdash; Services</p>
+      <p class="eyebrow">05 &mdash; Services</p>
       <h2>Six ways <span class="accent">we help</span></h2>
       <p class="lead">Pick the one that fits. Most businesses start with Business Watch or Contractor Watch.</p>
     </div>
@@ -320,7 +348,7 @@
 <footer>
   <div class="wrap">
     <div class="brandmark brandmark-logo">
-      <img loading="lazy" src="assets/logo.jpg" alt="Nevada Business Watch logo" width="396" height="140">
+      <img loading="lazy" src="assets/logo.jpg" alt="Nevada Business Watch logo" width="378" height="104">
     </div>
     <p style="font-weight:700;color:#c7d3e5">Business, Contractor &amp; Nonprofit Compliance Monitoring</p>
     <p style="margin-top:2px"><a href="tel:+17023432387" style="color:#9fb0c8;text-decoration:none;font-weight:600">702-343-2387</a> &nbsp;&middot;&nbsp; <a href="mailto:info@nbw.com" style="color:#9fb0c8;text-decoration:none;font-weight:600">info@nbw.com</a></p>
