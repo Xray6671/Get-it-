@@ -257,4 +257,27 @@
   });
   // Signing out and back in changes who is viewing, so keep the bar in step
   client.auth.onAuthStateChange(() => setTimeout(syncBar, 0));
+
+  // Hosted previews that block downloads and confirm() dialogs set
+  // window.DEMO_SANDBOX before this file loads.
+  if (window.DEMO_SANDBOX) {
+    window.confirm = () => true;  // the demo resets on reload, so deletes are harmless
+    let toastTimer = null;
+    document.addEventListener("click", e => {
+      if (!e.target.closest("[data-action='download-file'], [data-action='export-csv']")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      let toast = document.querySelector(".demo-toast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.className = "demo-toast";
+        toast.setAttribute("role", "status");
+        document.body.appendChild(toast);
+      }
+      toast.textContent = "Downloads are off in this preview. In the Business File, this saves the file.";
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 3500);
+    }, true);
+  }
 })();
